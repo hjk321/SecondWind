@@ -1,8 +1,8 @@
 name: SecondWind
 version: 1.0-SNAPSHOT
 main: com.hjk321.secondwind.SecondWind
-description: Don't go gently into that good night.
-author: hjk321
+description: Do not go gentle into that good night.
+authors: [hjk321]
 website: https://hangar.papermc.io/hjk321/SecondWind
 api-version: '1.20.6'
 bootstrapper: com.hjk321.secondwind.SecondWindBootstrap

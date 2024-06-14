@@ -24,7 +24,7 @@ tasks.shadowJar {
 
     exclude("org/intellij/**")
     exclude("org/slf4j/**")
+    exclude("org/jetbrains/annotations/**")
 
     relocate("kotlin", "com.hjk321.secondwind.deps.kotlin")
-    relocate("org.jetbrains.annotations", "com.hjk321.secondwind.deps.annotations")
 }
