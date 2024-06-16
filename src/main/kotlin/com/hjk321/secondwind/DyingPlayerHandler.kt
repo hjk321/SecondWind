@@ -1,5 +1,8 @@
 package com.hjk321.secondwind
 
+import io.papermc.paper.event.player.PlayerInventorySlotChangeEvent
+import org.bukkit.GameMode
+import org.bukkit.Material
 import org.bukkit.attribute.Attribute
 import org.bukkit.entity.Player
 import org.bukkit.entity.Pose
@@ -10,14 +13,31 @@ import org.bukkit.event.entity.EntityDamageEvent
 import org.bukkit.event.entity.PlayerDeathEvent
 import org.bukkit.potion.PotionEffect
 import org.bukkit.potion.PotionEffectType
-import java.util.*
+import org.bukkit.NamespacedKey
+import org.bukkit.event.entity.EntityResurrectEvent
+import org.bukkit.event.player.PlayerGameModeChangeEvent
+import org.bukkit.event.player.PlayerItemHeldEvent
+import org.bukkit.persistence.PersistentDataType
 
+class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
+    private val dyingKey = NamespacedKey(this.plugin, "dying")
 
-class DyingPlayerHandler : Listener {
-    private val dyingPlayers: ArrayList<UUID> = ArrayList()
+    private fun checkDyingTag(player:Player): Boolean {
+        return player.persistentDataContainer.has(dyingKey, PersistentDataType.BOOLEAN) and
+            (player.persistentDataContainer.get(dyingKey, PersistentDataType.BOOLEAN) == true)
+    }
+
+    private fun removeDyingTag(player:Player) {
+        player.persistentDataContainer.remove(dyingKey)
+    }
+
+    private fun addDyingTag(player: Player) {
+        player.persistentDataContainer.remove(dyingKey) // In case it's false or the wrong type
+        player.persistentDataContainer.set(dyingKey, PersistentDataType.BOOLEAN, true)
+    }
 
     private fun startDying(player: Player) {
-        dyingPlayers.add(player.uniqueId)
+        addDyingTag(player)
         player.health = player.getAttribute(Attribute.GENERIC_MAX_HEALTH)!!.value // todo don't assert
         player.addPotionEffect(PotionEffect(
             PotionEffectType.WITHER, PotionEffect.INFINITE_DURATION,
@@ -35,20 +55,33 @@ class DyingPlayerHandler : Listener {
     }
 
     private fun secondWind(player: Player) {
+        if (!checkDyingTag(player))
+            return
+        removeDyingTag(player)
         player.removePotionEffect(PotionEffectType.WITHER)
         player.removePotionEffect(PotionEffectType.SLOWNESS)
         player.removePotionEffect(PotionEffectType.MINING_FATIGUE)
         // TODO remove other bad effects
+
+        player.health = 1.0
         player.addPotionEffect(PotionEffect(PotionEffectType.REGENERATION,
             100, 0, false, false, false))
+        player.setPose(Pose.STANDING, false)
     }
 
     @EventHandler(priority = EventPriority.HIGH)
     @Suppress("unused") // Registered by Listener
-    fun checkPlayerVanillaDeath(event: EntityDamageEvent) {
+    fun checkPlayerLethalDamage(event: EntityDamageEvent) {
         if (event.entity is Player) {
             val player = event.entity as Player
-            if (event.damage >= player.health && !dyingPlayers.contains(player.uniqueId)) { // TODO more robust check
+            if ((player.gameMode == GameMode.CREATIVE) or (player.gameMode == GameMode.SPECTATOR))
+                return
+            if (event.damage >= player.health && !checkDyingTag(player)) { // TODO more robust check
+                if ((player.inventory.itemInOffHand.type == Material.TOTEM_OF_UNDYING)
+                    or (player.inventory.itemInMainHand.type == Material.TOTEM_OF_UNDYING)) {
+                    addDyingTag(player)
+                    return // Defer to vanilla totem logic. FIXME doesn't work, kills the player!
+                }
                 event.damage = 0.0
                 startDying(player)
             }
@@ -58,7 +91,53 @@ class DyingPlayerHandler : Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     @Suppress("unused") // Registered by Listener
     fun deadPlayerCleanup(event: PlayerDeathEvent) {
-        dyingPlayers.remove(event.player.uniqueId)
+        if (event.isCancelled)
+            return
+        removeDyingTag(event.player)
         event.player.setPose(Pose.DYING, false)
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    @Suppress("unused") // Registered by Listener
+    fun reviveOnGamemodeChange(event: PlayerGameModeChangeEvent) {
+        if (event.isCancelled)
+            return
+        val gamemode = event.newGameMode
+        if ((gamemode == GameMode.CREATIVE) or (gamemode == GameMode.SPECTATOR))
+            secondWind(event.player)
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    @Suppress("unused") // Registered by Listener
+    fun totemUsedCleanup(event: EntityResurrectEvent) {
+        if ((event.entity !is Player) or (event.isCancelled))
+            return
+        secondWind(event.entity as Player)
+    }
+
+    private val OFFHAND_SLOT = 40
+    @EventHandler(priority = EventPriority.MONITOR)
+    @Suppress("unused") // Registered by Listener
+    fun checkTotemWhileDying(event: PlayerInventorySlotChangeEvent) {
+        if (((event.slot != OFFHAND_SLOT) and (event.slot != event.player.inventory.heldItemSlot))
+            or (!checkDyingTag(event.player)))
+            return
+        if ((event.player.inventory.itemInMainHand.type == Material.TOTEM_OF_UNDYING)
+            or (event.player.inventory.itemInOffHand.type == Material.TOTEM_OF_UNDYING))
+            event.player.damage(event.player.getAttribute(Attribute.GENERIC_MAX_HEALTH)!!.value) // todo dont assert
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    @Suppress("unused") // Registered by Listener
+    fun checkTotemWhileDying2(event: PlayerItemHeldEvent) {
+        val player = event.player
+        if (event.isCancelled or (event.newSlot == event.previousSlot) or (!checkDyingTag(player)))
+            return
+        if (player.inventory.getItem(event.newSlot)?.type == Material.TOTEM_OF_UNDYING)
+            plugin.server.scheduler.scheduleSyncDelayedTask(plugin, {
+                // Since the hotbar switch is *about* to happen, we need to wait a tick for itemInMainHand to update.
+                if (player.inventory.itemInMainHand.type == Material.TOTEM_OF_UNDYING)
+                    event.player.damage(event.player.getAttribute(Attribute.GENERIC_MAX_HEALTH)!!.value) // todo dont assert
+            }, 1)
     }
 }
