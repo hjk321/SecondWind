@@ -1,6 +1,5 @@
 package com.hjk321.secondwind
 
-import io.papermc.paper.event.player.PlayerInventorySlotChangeEvent
 import org.bukkit.GameMode
 import org.bukkit.Material
 import org.bukkit.attribute.Attribute
@@ -16,14 +15,14 @@ import org.bukkit.potion.PotionEffectType
 import org.bukkit.NamespacedKey
 import org.bukkit.event.entity.EntityResurrectEvent
 import org.bukkit.event.player.PlayerGameModeChangeEvent
-import org.bukkit.event.player.PlayerItemHeldEvent
+import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.persistence.PersistentDataType
 
 class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
     private val dyingKey = NamespacedKey(this.plugin, "dying")
 
     private fun checkDyingTag(player:Player): Boolean {
-        return player.persistentDataContainer.has(dyingKey, PersistentDataType.BOOLEAN) and
+        return player.persistentDataContainer.has(dyingKey, PersistentDataType.BOOLEAN) &&
             (player.persistentDataContainer.get(dyingKey, PersistentDataType.BOOLEAN) == true)
     }
 
@@ -74,13 +73,13 @@ class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
     fun checkPlayerLethalDamage(event: EntityDamageEvent) {
         if (event.entity is Player) {
             val player = event.entity as Player
-            if ((player.gameMode == GameMode.CREATIVE) or (player.gameMode == GameMode.SPECTATOR))
+            // TODO check if damage is due to /kill command and return. Required for technical reasons.
+            if ((player.gameMode == GameMode.CREATIVE) || (player.gameMode == GameMode.SPECTATOR))
                 return
             if (event.damage >= player.health && !checkDyingTag(player)) { // TODO more robust check
                 if ((player.inventory.itemInOffHand.type == Material.TOTEM_OF_UNDYING)
-                    or (player.inventory.itemInMainHand.type == Material.TOTEM_OF_UNDYING)) {
-                    addDyingTag(player)
-                    return // Defer to vanilla totem logic. FIXME doesn't work, kills the player!
+                    || (player.inventory.itemInMainHand.type == Material.TOTEM_OF_UNDYING)) {
+                    return // Defer to vanilla totem logic. TODO config for alternate totem behavior
                 }
                 event.damage = 0.0
                 startDying(player)
@@ -103,41 +102,23 @@ class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         if (event.isCancelled)
             return
         val gamemode = event.newGameMode
-        if ((gamemode == GameMode.CREATIVE) or (gamemode == GameMode.SPECTATOR))
+        if ((gamemode == GameMode.CREATIVE) || (gamemode == GameMode.SPECTATOR))
             secondWind(event.player)
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     @Suppress("unused") // Registered by Listener
-    fun totemUsedCleanup(event: EntityResurrectEvent) {
-        if ((event.entity !is Player) or (event.isCancelled))
+    fun reviveOnTotem(event: EntityResurrectEvent) {
+        if ((event.entity !is Player) || (event.isCancelled))
             return
         secondWind(event.entity as Player)
     }
 
-    private val OFFHAND_SLOT = 40
     @EventHandler(priority = EventPriority.MONITOR)
     @Suppress("unused") // Registered by Listener
-    fun checkTotemWhileDying(event: PlayerInventorySlotChangeEvent) {
-        if (((event.slot != OFFHAND_SLOT) and (event.slot != event.player.inventory.heldItemSlot))
-            or (!checkDyingTag(event.player)))
-            return
-        if ((event.player.inventory.itemInMainHand.type == Material.TOTEM_OF_UNDYING)
-            or (event.player.inventory.itemInOffHand.type == Material.TOTEM_OF_UNDYING))
+    fun popTotemEarly(event: PlayerInteractEvent) {
+        if (event.hasItem() && (event.item?.type == Material.TOTEM_OF_UNDYING) && checkDyingTag(event.player)) {
             event.player.damage(event.player.getAttribute(Attribute.GENERIC_MAX_HEALTH)!!.value) // todo dont assert
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR)
-    @Suppress("unused") // Registered by Listener
-    fun checkTotemWhileDying2(event: PlayerItemHeldEvent) {
-        val player = event.player
-        if (event.isCancelled or (event.newSlot == event.previousSlot) or (!checkDyingTag(player)))
-            return
-        if (player.inventory.getItem(event.newSlot)?.type == Material.TOTEM_OF_UNDYING)
-            plugin.server.scheduler.scheduleSyncDelayedTask(plugin, {
-                // Since the hotbar switch is *about* to happen, we need to wait a tick for itemInMainHand to update.
-                if (player.inventory.itemInMainHand.type == Material.TOTEM_OF_UNDYING)
-                    event.player.damage(event.player.getAttribute(Attribute.GENERIC_MAX_HEALTH)!!.value) // todo dont assert
-            }, 1)
+        }
     }
 }
