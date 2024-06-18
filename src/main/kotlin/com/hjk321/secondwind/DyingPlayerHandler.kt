@@ -1,7 +1,6 @@
 package com.hjk321.secondwind
 
-import org.bukkit.GameMode
-import org.bukkit.Material
+import org.bukkit.*
 import org.bukkit.attribute.Attribute
 import org.bukkit.entity.Player
 import org.bukkit.entity.Pose
@@ -12,7 +11,6 @@ import org.bukkit.event.entity.EntityDamageEvent
 import org.bukkit.event.entity.PlayerDeathEvent
 import org.bukkit.potion.PotionEffect
 import org.bukkit.potion.PotionEffectType
-import org.bukkit.NamespacedKey
 import org.bukkit.event.entity.EntityResurrectEvent
 import org.bukkit.event.player.PlayerGameModeChangeEvent
 import org.bukkit.event.player.PlayerInteractEvent
@@ -21,16 +19,16 @@ import org.bukkit.persistence.PersistentDataType
 class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
     private val dyingKey = NamespacedKey(this.plugin, "dying")
 
-    private fun checkDyingTag(player:Player): Boolean {
+    fun checkDyingTag(player:Player): Boolean {
         return player.persistentDataContainer.has(dyingKey, PersistentDataType.BOOLEAN) &&
             (player.persistentDataContainer.get(dyingKey, PersistentDataType.BOOLEAN) == true)
     }
 
-    private fun removeDyingTag(player:Player) {
+    fun removeDyingTag(player:Player) {
         player.persistentDataContainer.remove(dyingKey)
     }
 
-    private fun addDyingTag(player: Player) {
+    fun addDyingTag(player: Player) {
         player.persistentDataContainer.remove(dyingKey) // In case it's false or the wrong type
         player.persistentDataContainer.set(dyingKey, PersistentDataType.BOOLEAN, true)
     }
@@ -51,6 +49,7 @@ class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
             2, false, false, false)
         )
         player.setPose(Pose.SWIMMING, true)
+        plugin.redScreenHandler.sendInitialDyingScreenEffect(player)
     }
 
     private fun secondWind(player: Player) {
@@ -66,6 +65,7 @@ class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         player.addPotionEffect(PotionEffect(PotionEffectType.REGENERATION,
             100, 0, false, false, false))
         player.setPose(Pose.STANDING, false)
+        plugin.redScreenHandler.clearDyingScreenEffect(player)
     }
 
     @EventHandler(priority = EventPriority.HIGH)
@@ -73,7 +73,7 @@ class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
     fun checkPlayerLethalDamage(event: EntityDamageEvent) {
         if (event.entity is Player) {
             val player = event.entity as Player
-            // TODO check if damage is due to /kill command and return. Required for technical reasons.
+            // TODO check if damage is due to /kill command and return. Required for technical reasons (totem).
             if ((player.gameMode == GameMode.CREATIVE) || (player.gameMode == GameMode.SPECTATOR))
                 return
             if (event.damage >= player.health && !checkDyingTag(player)) { // TODO more robust check
@@ -94,6 +94,7 @@ class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
             return
         removeDyingTag(event.player)
         event.player.setPose(Pose.DYING, false)
+        plugin.redScreenHandler.clearDyingScreenEffect(event.player)
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
