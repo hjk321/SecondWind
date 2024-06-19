@@ -2,18 +2,31 @@ package com.hjk321.secondwind
 
 import io.papermc.paper.event.world.border.WorldBorderBoundsChangeEvent
 import io.papermc.paper.event.world.border.WorldBorderBoundsChangeFinishEvent
+import io.papermc.paper.event.world.border.WorldBorderCenterChangeEvent
 import org.bukkit.Bukkit
 import org.bukkit.WorldBorder
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
+import java.time.Instant
 import java.util.concurrent.TimeUnit
 
 class RedScreenHandler(private val plugin: SecondWind) : Listener {
+    private var worldBorderChangeEnd: Instant? = null
+    private var worldBorderChangeSize: Double? = null
+
     fun sendInitialDyingScreenEffect(player: Player) {
-        player.worldBorder = copyWorldBorderForDying(player.world.worldBorder)
-        // TODO if at all possible, we need to account for borders that are growing/shrinking here
+        val newBorder = copyWorldBorderForDying(player.world.worldBorder)
+        worldBorderChangeEnd?.let { worldBorderChangeEnd ->
+            val duration = worldBorderChangeEnd.toEpochMilli() - Instant.now().toEpochMilli()
+            if (duration > 0) {
+                worldBorderChangeSize?.let { worldBorderChangeSize ->
+                    newBorder.setSize(worldBorderChangeSize, TimeUnit.MILLISECONDS, duration)
+                }
+            }
+        }
+        player.worldBorder = newBorder
     }
 
     fun clearDyingScreenEffect(player: Player) {
@@ -35,7 +48,7 @@ class RedScreenHandler(private val plugin: SecondWind) : Listener {
 
     private fun scheduleDyingWorldBorderUpdate(newBorder: WorldBorder) {
         plugin.server.scheduler.scheduleSyncDelayedTask(plugin) {
-            // TODO optimize? It's only being called when the world border changes, so might not be neccesary.
+            // Iterating over all players is inefficient, but this will only ever be called when the worldborder updates
             plugin.server.onlinePlayers.forEach { player ->
                 if (plugin.dyingPlayerHandler.checkDyingTag(player)) {
                     player.worldBorder = newBorder
@@ -51,18 +64,24 @@ class RedScreenHandler(private val plugin: SecondWind) : Listener {
             return
         val newBorder = copyWorldBorderForDying(event.worldBorder)
         newBorder.setSize(event.newSize, TimeUnit.MILLISECONDS, event.duration)
+        worldBorderChangeEnd = Instant.now().plusMillis(event.duration)
+        worldBorderChangeSize = event.newSize
         scheduleDyingWorldBorderUpdate(newBorder)
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     @Suppress("unused") // Registered by Listener
     fun updateDyingWorldBorderOnFinish(event: WorldBorderBoundsChangeFinishEvent) {
+        worldBorderChangeEnd = null
+        worldBorderChangeSize = null
         scheduleDyingWorldBorderUpdate(copyWorldBorderForDying(event.worldBorder))
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     @Suppress("unused") // Registered by Listener
-    fun updateDyingWorldBorderOnCenterChange(event: WorldBorderBoundsChangeFinishEvent) {
+    fun updateDyingWorldBorderOnCenterChange(event: WorldBorderCenterChangeEvent) {
+        if (event.isCancelled)
+            return
         scheduleDyingWorldBorderUpdate(copyWorldBorderForDying(event.worldBorder))
     }
 }
