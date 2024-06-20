@@ -14,7 +14,7 @@ repositories {
 
 dependencies {
     paperweight.paperDevBundle("1.20.6-R0.1-SNAPSHOT")
-    implementation("io.papermc:paper-trail:0.0.1-SNAPSHOT")
+    implementation("io.papermc:paper-trail:1.0.1")
 }
 
 kotlin {
