@@ -14,6 +14,7 @@ repositories {
 
 dependencies {
     paperweight.paperDevBundle("1.20.6-R0.1-SNAPSHOT")
+    implementation("io.papermc:paper-trail:0.0.1-SNAPSHOT")
 }
 
 kotlin {
@@ -28,4 +29,5 @@ tasks.shadowJar {
     exclude("org/jetbrains/annotations/**")
 
     relocate("kotlin", "com.hjk321.secondwind.deps.kotlin")
+    relocate("io.papermc.papertrail", "com.hjk321.secondwind.deps.papertrail")
 }

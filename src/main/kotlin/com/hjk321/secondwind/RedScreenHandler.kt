@@ -15,6 +15,8 @@ import java.util.concurrent.TimeUnit
 
 class RedScreenHandler(private val plugin: SecondWind) : Listener {
 
+    // FIXME there's something going screwy with the scale of the nether and the worldborders.
+
     fun sendDyingRedScreenEffect(player: Player) {
         val realBorder = player.world.worldBorder
         val newBorder = copyWorldBorderForDying(realBorder)
