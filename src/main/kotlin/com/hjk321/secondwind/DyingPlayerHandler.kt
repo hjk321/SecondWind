@@ -49,7 +49,7 @@ class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
             2, false, false, false)
         )
         player.setPose(Pose.SWIMMING, true)
-        plugin.redScreenHandler.sendInitialDyingScreenEffect(player)
+        plugin.redScreenHandler.sendDyingRedScreenEffect(player)
     }
 
     private fun secondWind(player: Player) {
