@@ -73,7 +73,8 @@ class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
     fun checkPlayerLethalDamage(event: EntityDamageEvent) {
         if (event.entity is Player) {
             val player = event.entity as Player
-            // TODO check if damage is due to /kill command and return. Required for technical reasons (totem).
+            if (event.cause == EntityDamageEvent.DamageCause.KILL)
+                return // the kill command bypasses second wind
             if ((player.gameMode == GameMode.CREATIVE) || (player.gameMode == GameMode.SPECTATOR))
                 return
             if (event.damage >= player.health && !checkDyingTag(player)) { // TODO more robust check
