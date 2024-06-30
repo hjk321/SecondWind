@@ -34,12 +34,13 @@ class RedScreenHandler(private val plugin: SecondWind) : Listener {
     private fun sendWitherHeartEffect(player: Player) {
         player.sendPotionEffectChange(player, PotionEffect( // Fake wither heart effect
             PotionEffectType.WITHER, PotionEffect.INFINITE_DURATION,
-            1, false, false, false)
+            0, false, false, false)
         )
     }
 
     fun clearDyingScreenEffect(player: Player) {
         player.worldBorder = null
+        player.sendPotionEffectChangeRemove(player, PotionEffectType.WITHER)
     }
 
     private fun copyWorldBorderForDying(world: World) : WorldBorder {
@@ -78,7 +79,6 @@ class RedScreenHandler(private val plugin: SecondWind) : Listener {
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
-    @Suppress("unused") // Registered by Listener
     fun updateDyingWorldBorderOnChange(event: WorldBorderBoundsChangeEvent) {
         if (event.isCancelled)
             return
@@ -88,13 +88,11 @@ class RedScreenHandler(private val plugin: SecondWind) : Listener {
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
-    @Suppress("unused") // Registered by Listener
     fun updateDyingWorldBorderOnFinish(event: WorldBorderBoundsChangeFinishEvent) {
         scheduleDyingWorldBorderUpdate(copyWorldBorderForDying(event.world), event.world)
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
-    @Suppress("unused") // Registered by Listener
     fun updateDyingWorldBorderOnCenterChange(event: WorldBorderCenterChangeEvent) {
         if (event.isCancelled)
             return
@@ -103,13 +101,11 @@ class RedScreenHandler(private val plugin: SecondWind) : Listener {
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
-    @Suppress("unused") // Registered by Listener
     fun updateDyingWorldBorderOnWorldChange(event: PlayerChangedWorldEvent) {
         scheduleSendNewDyingEffectToPlayer(event.player)
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
-    @Suppress("unused") // Registered by Listener
     fun updateDyingWorldBorderOnJoin(event: PlayerJoinEvent) {
         // TODO if kill-on-leave is on, we shouldn't bother here.
         scheduleSendNewDyingEffectToPlayer(event.player)

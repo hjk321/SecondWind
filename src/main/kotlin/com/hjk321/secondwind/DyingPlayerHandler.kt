@@ -8,12 +8,14 @@ import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
 import org.bukkit.event.entity.EntityDamageEvent
+import org.bukkit.event.entity.EntityRegainHealthEvent
 import org.bukkit.event.entity.PlayerDeathEvent
 import org.bukkit.potion.PotionEffect
 import org.bukkit.potion.PotionEffectType
 import org.bukkit.event.entity.EntityResurrectEvent
 import org.bukkit.event.player.PlayerGameModeChangeEvent
 import org.bukkit.event.player.PlayerInteractEvent
+import org.bukkit.event.player.PlayerQuitEvent
 import org.bukkit.persistence.PersistentDataType
 
 class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
@@ -44,7 +46,7 @@ class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
             PotionEffectType.MINING_FATIGUE, PotionEffect.INFINITE_DURATION,
             2, false, false, false)
         )
-        player.addPotionEffect(PotionEffect( // Note, this prevents damaging entities with bad weapons
+        player.addPotionEffect(PotionEffect( // Note, this prevents damaging entities in certain situations
             PotionEffectType.WEAKNESS, PotionEffect.INFINITE_DURATION,
             1, false, false, false)
         )
@@ -70,27 +72,30 @@ class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
     }
 
     @EventHandler(priority = EventPriority.HIGH)
-    @Suppress("unused") // Registered by Listener
     fun checkPlayerLethalDamage(event: EntityDamageEvent) {
-        if (event.entity is Player) {
-            val player = event.entity as Player
-            if (event.cause == EntityDamageEvent.DamageCause.KILL)
-                return // the kill command bypasses second wind
-            if ((player.gameMode == GameMode.CREATIVE) || (player.gameMode == GameMode.SPECTATOR))
-                return
-            if (event.damage >= player.health && !checkDyingTag(player)) { // TODO more robust check
-                if ((player.inventory.itemInOffHand.type == Material.TOTEM_OF_UNDYING)
-                    || (player.inventory.itemInMainHand.type == Material.TOTEM_OF_UNDYING)) {
-                    return // Defer to vanilla totem logic. TODO config for alternate totem behavior
-                }
-                event.damage = 0.0
-                startDying(player)
+        if (event.entity !is Player)
+            return
+        val player = event.entity as Player
+        if (event.cause == EntityDamageEvent.DamageCause.KILL)
+            return // the kill command bypasses second wind
+        if ((player.gameMode == GameMode.CREATIVE) || (player.gameMode == GameMode.SPECTATOR))
+            return
+        if (checkDyingTag(player)) {
+            // prevent damage while dying
+            event.isCancelled = true
+            return
+        }
+        if (event.damage >= player.health) { // TODO more robust check
+            if ((player.inventory.itemInOffHand.type == Material.TOTEM_OF_UNDYING)
+                || (player.inventory.itemInMainHand.type == Material.TOTEM_OF_UNDYING)) {
+                return // Defer to vanilla totem logic. TODO config for alternate totem behavior
             }
+            event.damage = 0.0
+            startDying(player)
         }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
-    @Suppress("unused") // Registered by Listener
     fun deadPlayerCleanup(event: PlayerDeathEvent) {
         if (event.isCancelled)
             return
@@ -100,7 +105,6 @@ class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
-    @Suppress("unused") // Registered by Listener
     fun reviveOnGamemodeChange(event: PlayerGameModeChangeEvent) {
         if (event.isCancelled)
             return
@@ -110,7 +114,6 @@ class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
-    @Suppress("unused") // Registered by Listener
     fun reviveOnTotem(event: EntityResurrectEvent) {
         if ((event.entity !is Player) || (event.isCancelled))
             return
@@ -118,10 +121,23 @@ class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
-    @Suppress("unused") // Registered by Listener
     fun popTotemEarly(event: PlayerInteractEvent) {
         if (event.hasItem() && (event.item?.type == Material.TOTEM_OF_UNDYING) && checkDyingTag(event.player)) {
             event.player.damage(event.player.getAttribute(Attribute.GENERIC_MAX_HEALTH)!!.value) // todo dont assert
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH)
+    fun noRegenWhileDying(event: EntityRegainHealthEvent) {
+        if (event.entity is Player && checkDyingTag(event.entity as Player))
+            event.isCancelled = true
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    fun killIfLeaveGameWhileDying(event: PlayerQuitEvent) {
+        if (checkDyingTag(event.player)) {
+            removeDyingTag(event.player)
+            event.player.health = 0.0
         }
     }
 }

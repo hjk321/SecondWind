@@ -4,9 +4,11 @@ import com.hjk321.secondwind.nms.NMS
 import com.hjk321.secondwind.nms.SimpleNMS
 import org.bstats.bukkit.Metrics
 import org.bukkit.plugin.java.JavaPlugin
+import org.jetbrains.annotations.ApiStatus.Internal
 
 const val BSTATS_ID = 22438
 
+@Internal
 class SecondWind : JavaPlugin() {
     internal lateinit var nms : NMS
     internal lateinit var dyingPlayerHandler : DyingPlayerHandler
