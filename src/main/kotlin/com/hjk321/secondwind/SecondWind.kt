@@ -4,7 +4,6 @@ import com.hjk321.secondwind.nms.NMS
 import com.hjk321.secondwind.nms.SimpleNMS
 import org.bstats.bukkit.Metrics
 import org.bukkit.plugin.java.JavaPlugin
-import java.lang.NullPointerException
 
 const val BSTATS_ID = 22438
 

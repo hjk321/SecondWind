@@ -24,22 +24,18 @@ class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
             (player.persistentDataContainer.get(dyingKey, PersistentDataType.BOOLEAN) == true)
     }
 
-    fun removeDyingTag(player:Player) {
+    private fun removeDyingTag(player:Player) {
         player.persistentDataContainer.remove(dyingKey)
     }
 
-    fun addDyingTag(player: Player) {
+    private fun addDyingTag(player: Player) {
         player.persistentDataContainer.remove(dyingKey) // In case it's false or the wrong type
         player.persistentDataContainer.set(dyingKey, PersistentDataType.BOOLEAN, true)
     }
 
     private fun startDying(player: Player) {
         addDyingTag(player)
-        player.health = player.getAttribute(Attribute.GENERIC_MAX_HEALTH)!!.value // todo don't assert
-        player.addPotionEffect(PotionEffect(
-            PotionEffectType.WITHER, PotionEffect.INFINITE_DURATION,
-            1, false, false, false)
-        )
+        player.health = 0.5
         player.addPotionEffect(PotionEffect(
             PotionEffectType.SLOWNESS, PotionEffect.INFINITE_DURATION,
             4, false, false, false)
@@ -47,6 +43,10 @@ class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         player.addPotionEffect(PotionEffect(
             PotionEffectType.MINING_FATIGUE, PotionEffect.INFINITE_DURATION,
             2, false, false, false)
+        )
+        player.addPotionEffect(PotionEffect( // Note, this prevents damaging entities with bad weapons
+            PotionEffectType.WEAKNESS, PotionEffect.INFINITE_DURATION,
+            1, false, false, false)
         )
         player.setPose(Pose.SWIMMING, true)
         plugin.redScreenHandler.sendDyingRedScreenEffect(player)
@@ -56,10 +56,11 @@ class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         if (!checkDyingTag(player))
             return
         removeDyingTag(player)
-        player.removePotionEffect(PotionEffectType.WITHER)
         player.removePotionEffect(PotionEffectType.SLOWNESS)
         player.removePotionEffect(PotionEffectType.MINING_FATIGUE)
+        player.removePotionEffect(PotionEffectType.WEAKNESS)
         // TODO remove other bad effects
+        // TODO multiple effects of the same type are supported, so we should only remove the infinite versions?
 
         player.health = 1.0
         player.addPotionEffect(PotionEffect(PotionEffectType.REGENERATION,

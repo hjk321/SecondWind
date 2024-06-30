@@ -12,6 +12,8 @@ import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerChangedWorldEvent
 import org.bukkit.event.player.PlayerJoinEvent
+import org.bukkit.potion.PotionEffect
+import org.bukkit.potion.PotionEffectType
 import java.util.concurrent.TimeUnit
 
 class RedScreenHandler(private val plugin: SecondWind) : Listener {
@@ -26,6 +28,14 @@ class RedScreenHandler(private val plugin: SecondWind) : Listener {
                 plugin.nms.getWorldBorderRemainingTime(realBorder))
 
         player.worldBorder = newBorder
+        sendWitherHeartEffect(player)
+    }
+
+    private fun sendWitherHeartEffect(player: Player) {
+        player.sendPotionEffectChange(player, PotionEffect( // Fake wither heart effect
+            PotionEffectType.WITHER, PotionEffect.INFINITE_DURATION,
+            1, false, false, false)
+        )
     }
 
     fun clearDyingScreenEffect(player: Player) {
@@ -60,8 +70,10 @@ class RedScreenHandler(private val plugin: SecondWind) : Listener {
 
     private fun scheduleSendNewDyingEffectToPlayer(player: Player) {
         plugin.server.scheduler.scheduleSyncDelayedTask(plugin) {
-            if (plugin.dyingPlayerHandler.checkDyingTag(player))
+            if (plugin.dyingPlayerHandler.checkDyingTag(player)) {
                 sendDyingRedScreenEffect(player)
+                sendWitherHeartEffect(player)
+            }
         }
     }
 
