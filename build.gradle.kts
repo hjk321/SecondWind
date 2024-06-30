@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "com.hjk321.secondwind"
-version = "1.0-SNAPSHOT"
+version = "0.5-SNAPSHOT"
 description = "Do not go gentle into that good night."
 project.ext["author"] = "hjk321"
 project.ext["url"] = "https://hangar.papermc.io/hjk321/SecondWind"
@@ -20,6 +20,7 @@ repositories {
 dependencies {
     paperweight.paperDevBundle("1.20.6-R0.1-SNAPSHOT")
     implementation("io.papermc:paper-trail:1.0.1")
+    implementation("org.bstats:bstats-bukkit:3.0.2")
 }
 
 kotlin {
@@ -47,4 +48,5 @@ tasks.shadowJar {
 
     relocate("kotlin", "com.hjk321.secondwind.kotlin")
     relocate("io.papermc.papertrail", "com.hjk321.secondwind.papertrail")
+    relocate("org.bstats", "com.hjk321.secondwind.bstats")
 }
