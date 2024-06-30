@@ -4,6 +4,7 @@ import io.papermc.paper.event.world.border.WorldBorderBoundsChangeEvent
 import io.papermc.paper.event.world.border.WorldBorderBoundsChangeFinishEvent
 import io.papermc.paper.event.world.border.WorldBorderCenterChangeEvent
 import org.bukkit.Bukkit
+import org.bukkit.World
 import org.bukkit.WorldBorder
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
@@ -15,11 +16,9 @@ import java.util.concurrent.TimeUnit
 
 class RedScreenHandler(private val plugin: SecondWind) : Listener {
 
-    // FIXME there's something going screwy with the scale of the nether and the worldborders.
-
     fun sendDyingRedScreenEffect(player: Player) {
         val realBorder = player.world.worldBorder
-        val newBorder = copyWorldBorderForDying(realBorder)
+        val newBorder = copyWorldBorderForDying(player.world)
 
         // If real border is shrinking or growing, imitate that in the new border
         if (plugin.nms.isWorldBorderMoving(realBorder))
@@ -33,11 +32,12 @@ class RedScreenHandler(private val plugin: SecondWind) : Listener {
         player.worldBorder = null
     }
 
-    private fun copyWorldBorderForDying(worldBorder: WorldBorder) : WorldBorder {
+    private fun copyWorldBorderForDying(world: World) : WorldBorder {
+        val worldBorder = world.worldBorder
         val newBorder = Bukkit.createWorldBorder()
 
         newBorder.size = worldBorder.size
-        newBorder.center = worldBorder.center
+        newBorder.center = worldBorder.center.multiply(world.coordinateScale)
         newBorder.damageAmount = worldBorder.damageAmount
         newBorder.damageBuffer = worldBorder.damageBuffer
         newBorder.warningDistance = Integer.MAX_VALUE
@@ -46,12 +46,12 @@ class RedScreenHandler(private val plugin: SecondWind) : Listener {
         return newBorder
     }
 
-    private fun scheduleDyingWorldBorderUpdate(newBorder: WorldBorder) {
+    private fun scheduleDyingWorldBorderUpdate(newBorder: WorldBorder, world: World) {
         plugin.server.scheduler.scheduleSyncDelayedTask(plugin) {
             // Iterating over all players is inefficient, but this will only ever be called when the worldborder updates
             // TODO if we have to make a dyingPlayers map somewhere, switch this to it as well
             plugin.server.onlinePlayers.forEach { player ->
-                if (plugin.dyingPlayerHandler.checkDyingTag(player)) {
+                if (plugin.dyingPlayerHandler.checkDyingTag(player) && player.world == world) {
                     player.worldBorder = newBorder
                 }
             }
@@ -70,15 +70,15 @@ class RedScreenHandler(private val plugin: SecondWind) : Listener {
     fun updateDyingWorldBorderOnChange(event: WorldBorderBoundsChangeEvent) {
         if (event.isCancelled)
             return
-        val newBorder = copyWorldBorderForDying(event.worldBorder)
+        val newBorder = copyWorldBorderForDying(event.world)
         newBorder.setSize(event.newSize, TimeUnit.MILLISECONDS, event.duration)
-        scheduleDyingWorldBorderUpdate(newBorder)
+        scheduleDyingWorldBorderUpdate(newBorder, event.world)
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     @Suppress("unused") // Registered by Listener
     fun updateDyingWorldBorderOnFinish(event: WorldBorderBoundsChangeFinishEvent) {
-        scheduleDyingWorldBorderUpdate(copyWorldBorderForDying(event.worldBorder))
+        scheduleDyingWorldBorderUpdate(copyWorldBorderForDying(event.world), event.world)
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -87,7 +87,7 @@ class RedScreenHandler(private val plugin: SecondWind) : Listener {
         if (event.isCancelled)
             return
         // TODO what if the center changes while it is also growing/shrinking? need to investigate.
-        scheduleDyingWorldBorderUpdate(copyWorldBorderForDying(event.worldBorder))
+        scheduleDyingWorldBorderUpdate(copyWorldBorderForDying(event.world), event.world)
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
