@@ -15,6 +15,7 @@ import org.bukkit.potion.PotionEffectType
 import org.bukkit.event.entity.EntityResurrectEvent
 import org.bukkit.event.player.PlayerGameModeChangeEvent
 import org.bukkit.event.player.PlayerInteractEvent
+import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerQuitEvent
 import org.bukkit.persistence.PersistentDataType
 
@@ -48,7 +49,7 @@ class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         )
         player.addPotionEffect(PotionEffect( // Note, this prevents damaging entities in certain situations
             PotionEffectType.WEAKNESS, PotionEffect.INFINITE_DURATION,
-            1, false, false, false)
+            0, false, false, false)
         )
         player.setPose(Pose.SWIMMING, true)
         plugin.redScreenHandler.sendDyingRedScreenEffect(player)
@@ -135,9 +136,18 @@ class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     fun killIfLeaveGameWhileDying(event: PlayerQuitEvent) {
-        if (checkDyingTag(event.player)) {
+        if (plugin.killOnJoin && checkDyingTag(event.player)) {
             removeDyingTag(event.player)
             event.player.health = 0.0
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    fun handlePlayerJoinWhileDying(event: PlayerJoinEvent) {
+        if (!plugin.killOnJoin && checkDyingTag(event.player)) {
+            event.player.setPose(Pose.SWIMMING, true)
+        } else {
+            secondWind(event.player) // Perhaps the config changed since they last logged in.
         }
     }
 }

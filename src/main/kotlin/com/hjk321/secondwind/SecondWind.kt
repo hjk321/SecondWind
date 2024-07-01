@@ -15,6 +15,8 @@ class SecondWind : JavaPlugin() {
     internal lateinit var redScreenHandler : RedScreenHandler
     private lateinit var metrics : Metrics
 
+    var killOnJoin = true
+
     override fun onEnable() {
         nms = SimpleNMS() // For now, all supported versions can use the same nms code
         dyingPlayerHandler = DyingPlayerHandler(this)
