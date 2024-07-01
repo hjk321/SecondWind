@@ -15,7 +15,7 @@ class SecondWind : JavaPlugin() {
     internal lateinit var redScreenHandler : RedScreenHandler
     private lateinit var metrics : Metrics
 
-    var killOnJoin = true
+    var killOnQuit = true
 
     override fun onEnable() {
         nms = SimpleNMS() // For now, all supported versions can use the same nms code
@@ -28,8 +28,7 @@ class SecondWind : JavaPlugin() {
     }
 
     override fun onDisable() {
-        try {
+        if (this::metrics.isInitialized)
             metrics.shutdown()
-        } catch (_: NullPointerException) {} // In case the lateinit didn't get assigned due to failed onEnable
     }
 }

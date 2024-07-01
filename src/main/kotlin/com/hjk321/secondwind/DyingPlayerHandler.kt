@@ -136,18 +136,19 @@ class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     fun killIfLeaveGameWhileDying(event: PlayerQuitEvent) {
-        if (plugin.killOnJoin && checkDyingTag(event.player)) {
-            removeDyingTag(event.player)
-            event.player.health = 0.0
+        if (plugin.killOnQuit && checkDyingTag(event.player)) {
+            event.player.health = 0.0 // Bypasses damage event but still triggers death event
         }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     fun handlePlayerJoinWhileDying(event: PlayerJoinEvent) {
-        if (!plugin.killOnJoin && checkDyingTag(event.player)) {
-            event.player.setPose(Pose.SWIMMING, true)
+        if (!plugin.killOnQuit) {
+            if (checkDyingTag(event.player)) {
+                event.player.setPose(Pose.SWIMMING, true)
+            }
         } else {
-            secondWind(event.player) // Perhaps the config changed since they last logged in.
+            event.player.health = 0.0 // Shouldn't happen, but perhaps the config changed since they last logged in.
         }
     }
 }
