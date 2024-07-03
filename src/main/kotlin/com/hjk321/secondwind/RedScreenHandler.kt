@@ -10,6 +10,7 @@ import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
+import org.bukkit.event.entity.PlayerDeathEvent
 import org.bukkit.event.player.PlayerChangedWorldEvent
 import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.potion.PotionEffect
@@ -109,5 +110,12 @@ internal class RedScreenHandler(private val plugin: SecondWind) : Listener {
     fun updateDyingWorldBorderOnJoin(event: PlayerJoinEvent) {
         // TODO if kill-on-leave is on, we shouldn't bother here.
         scheduleSendNewDyingEffectToPlayer(event.player)
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    fun removeEffectOnDeath(event: PlayerDeathEvent) {
+        if (event.isCancelled)
+            return
+        clearDyingScreenEffect(event.player)
     }
 }

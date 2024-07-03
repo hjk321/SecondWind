@@ -8,6 +8,7 @@ import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
+import org.bukkit.event.entity.PlayerDeathEvent
 import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerQuitEvent
 import java.util.UUID
@@ -42,7 +43,7 @@ internal class DyingBossActionBarManager(private val plugin: SecondWind) : Liste
 
     fun stopDyingBossBar(player: Player) {
         val bar = bars[player.uniqueId] ?: throw IllegalStateException()
-        bar.removeViewer(player)
+       player.hideBossBar(bar)
         bars.remove(player.uniqueId)
     }
 
@@ -54,8 +55,16 @@ internal class DyingBossActionBarManager(private val plugin: SecondWind) : Liste
 
     @EventHandler(priority = EventPriority.MONITOR)
     fun addBarOnJoin(event: PlayerJoinEvent) {
-        if (bars.containsKey(event.player.uniqueId))
+        bars.remove(event.player.uniqueId)
+        if (plugin.dyingPlayerHandler.checkDyingTag(event.player))
+            startDyingBossBar(event.player)
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    fun removeBarOnDeath(event: PlayerDeathEvent) {
+        if (event.isCancelled)
             return
-        startDyingBossBar(event.player)
+        if (bars.containsKey(event.player.uniqueId))
+            stopDyingBossBar(event.player)
     }
 }

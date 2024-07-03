@@ -105,8 +105,6 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
             return
         removeDyingTag(event.player)
         event.player.setPose(Pose.DYING, false)
-        plugin.redScreenHandler.clearDyingScreenEffect(event.player)
-        plugin.dyingBossActionBarManager.stopDyingBossBar(event.player)
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
