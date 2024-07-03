@@ -13,9 +13,10 @@ class SecondWind : JavaPlugin() {
     internal lateinit var nms : NMS
     internal lateinit var dyingPlayerHandler : DyingPlayerHandler
     internal lateinit var redScreenHandler : RedScreenHandler
+    internal lateinit var dyingBossActionBarManager: DyingBossActionBarManager
     private lateinit var metrics : Metrics
 
-    var killOnQuit = true
+    var killOnQuit = false
 
     override fun onEnable() {
         nms = SimpleNMS() // For now, all supported versions can use the same nms code
@@ -23,6 +24,8 @@ class SecondWind : JavaPlugin() {
         server.pluginManager.registerEvents(dyingPlayerHandler, this)
         redScreenHandler = RedScreenHandler(this)
         server.pluginManager.registerEvents(redScreenHandler, this)
+        dyingBossActionBarManager = DyingBossActionBarManager(this)
+        server.pluginManager.registerEvents(dyingBossActionBarManager, this)
         metrics = Metrics(this, BSTATS_ID)
         this.logger.info("Enabled!")
     }

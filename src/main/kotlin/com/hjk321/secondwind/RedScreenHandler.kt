@@ -16,7 +16,7 @@ import org.bukkit.potion.PotionEffect
 import org.bukkit.potion.PotionEffectType
 import java.util.concurrent.TimeUnit
 
-class RedScreenHandler(private val plugin: SecondWind) : Listener {
+internal class RedScreenHandler(private val plugin: SecondWind) : Listener {
 
     fun sendDyingRedScreenEffect(player: Player) {
         val realBorder = player.world.worldBorder

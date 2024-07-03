@@ -19,7 +19,7 @@ import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerQuitEvent
 import org.bukkit.persistence.PersistentDataType
 
-class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
+internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
     private val dyingKey = NamespacedKey(this.plugin, "dying")
 
     fun checkDyingTag(player:Player): Boolean {
@@ -53,6 +53,7 @@ class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         )
         player.setPose(Pose.SWIMMING, true)
         plugin.redScreenHandler.sendDyingRedScreenEffect(player)
+        plugin.dyingBossActionBarManager.startDyingBossBar(player)
     }
 
     private fun secondWind(player: Player) {
@@ -70,6 +71,7 @@ class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
             100, 0, false, false, false))
         player.setPose(Pose.STANDING, false)
         plugin.redScreenHandler.clearDyingScreenEffect(player)
+        plugin.dyingBossActionBarManager.stopDyingBossBar(player)
     }
 
     @EventHandler(priority = EventPriority.HIGH)
@@ -81,15 +83,16 @@ class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
             return // the kill command bypasses second wind
         if ((player.gameMode == GameMode.CREATIVE) || (player.gameMode == GameMode.SPECTATOR))
             return
-        if (checkDyingTag(player)) {
-            // prevent damage while dying
-            event.isCancelled = true
-            return
-        }
         if (event.damage >= player.health) { // TODO more robust check
             if ((player.inventory.itemInOffHand.type == Material.TOTEM_OF_UNDYING)
                 || (player.inventory.itemInMainHand.type == Material.TOTEM_OF_UNDYING)) {
                 return // Defer to vanilla totem logic. TODO config for alternate totem behavior
+                // FIXME the totem is currently popped when taking any damage from dying instead of just when we want
+            }
+            if (checkDyingTag(player)) {
+                // prevent damage while dying
+                event.isCancelled = true
+                return
             }
             event.damage = 0.0
             startDying(player)
@@ -103,6 +106,7 @@ class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         removeDyingTag(event.player)
         event.player.setPose(Pose.DYING, false)
         plugin.redScreenHandler.clearDyingScreenEffect(event.player)
+        plugin.dyingBossActionBarManager.stopDyingBossBar(event.player)
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -148,7 +152,8 @@ class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
                 event.player.setPose(Pose.SWIMMING, true)
             }
         } else {
-            event.player.health = 0.0 // Shouldn't happen, but perhaps the config changed since they last logged in.
+            if (!event.player.isDead)
+                event.player.health = 0.0 // Shouldn't happen, but perhaps the config changed since they last logged in.
         }
     }
 }
