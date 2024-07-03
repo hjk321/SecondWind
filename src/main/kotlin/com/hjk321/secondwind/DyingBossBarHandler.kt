@@ -4,6 +4,7 @@ import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.minimessage.MiniMessage
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder
+import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
@@ -13,12 +14,34 @@ import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerQuitEvent
 import java.util.UUID
 
-internal class DyingBossActionBarManager(private val plugin: SecondWind) : Listener {
+internal class DyingBossBarHandler(private val plugin: SecondWind) : Listener {
+
+    private class DyingBossBarHandlerTask(private val handler: DyingBossBarHandler) : Runnable {
+        override fun run() {
+            handler.bars.forEach { (uuid, bar) ->
+                run {
+                    val player = Bukkit.getPlayer(uuid) ?: return
+                    var ticks = handler.plugin.dyingPlayerHandler.getDyingTicks(player) -
+                            handler.plugin.dyingGracePeriodTicks;
+                    if (ticks < 0)
+                        ticks = 0
+                    bar.progress(ticks / handler.plugin.dyingTicks.toFloat())
+                }
+            }
+        }
+    }
+
+    private val task = DyingBossBarHandlerTask(this)
+    fun startTask() {
+        Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, task, 1, 2)
+    }
+
     private val bars : HashMap<UUID, BossBar> = HashMap()
 
     private fun constructDyingBossBar() : BossBar {
         val name = MiniMessage.miniMessage().deserialize("<bold><red>You are dying!</red></bold>")
         return BossBar.bossBar(name, 1.0f, BossBar.Color.RED, BossBar.Overlay.PROGRESS)
+            .addFlag(BossBar.Flag.DARKEN_SCREEN).addFlag(BossBar.Flag.CREATE_WORLD_FOG) // TODO configurable
     }
 
     private fun constructRevivingBossBar(revivedName : String) : BossBar {
@@ -31,6 +54,7 @@ internal class DyingBossActionBarManager(private val plugin: SecondWind) : Liste
         val name = MiniMessage.miniMessage().deserialize("<bold><green>Being revived by <name>!</green></bold>",
             Placeholder.component("name", Component.text(reviverName)))
         return BossBar.bossBar(name, 0.0f, BossBar.Color.GREEN, BossBar.Overlay.PROGRESS)
+            .addFlag(BossBar.Flag.DARKEN_SCREEN).addFlag(BossBar.Flag.CREATE_WORLD_FOG) // TODO configurable
     }
 
     fun startDyingBossBar(player: Player) {

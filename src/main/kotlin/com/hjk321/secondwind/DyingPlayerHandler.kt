@@ -35,18 +35,18 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         }
     }
 
+    private val task = DyingPlayerHandlerTask(this)
     fun startTask() {
         Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, task, 1, 1)
     }
 
     private val dyingKey = NamespacedKey(this.plugin, "dying")
-    private val task = DyingPlayerHandlerTask(this)
 
     fun checkDyingTag(player: Player): Boolean {
         return (player.persistentDataContainer.get(dyingKey, PersistentDataType.INTEGER) ?: NOT_DYING) >= DYING_NOW
     }
 
-    private fun getDyingTicks(player: Player) : Int {
+    fun getDyingTicks(player: Player) : Int {
         return player.persistentDataContainer.get(dyingKey, PersistentDataType.INTEGER) ?: NOT_DYING
     }
 
@@ -56,7 +56,8 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
 
     private fun addDyingTag(player: Player) {
         player.persistentDataContainer.remove(dyingKey) // In case it's a bad value or the wrong type
-        player.persistentDataContainer.set(dyingKey, PersistentDataType.INTEGER, plugin.dyingTicks)
+        player.persistentDataContainer.set(dyingKey, PersistentDataType.INTEGER, plugin.dyingTicks
+                + plugin.dyingGracePeriodTicks)
     }
 
     /// Returns the new value after decrementing.
@@ -85,7 +86,7 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         )
         player.setPose(Pose.SWIMMING, true)
         plugin.redScreenHandler.sendDyingRedScreenEffect(player)
-        plugin.dyingBossActionBarManager.startDyingBossBar(player)
+        plugin.dyingBossBarHandler.startDyingBossBar(player)
     }
 
     private fun secondWind(player: Player) {
@@ -103,7 +104,7 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
             100, 0, false, false, false))
         player.setPose(Pose.STANDING, false)
         plugin.redScreenHandler.clearDyingScreenEffect(player)
-        plugin.dyingBossActionBarManager.stopDyingBossBar(player)
+        plugin.dyingBossBarHandler.stopDyingBossBar(player)
     }
 
     @EventHandler(priority = EventPriority.HIGH)
