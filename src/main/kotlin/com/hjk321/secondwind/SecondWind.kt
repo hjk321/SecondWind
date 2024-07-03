@@ -16,16 +16,23 @@ class SecondWind : JavaPlugin() {
     internal lateinit var dyingBossActionBarManager: DyingBossActionBarManager
     private lateinit var metrics : Metrics
 
+    // TODO these should eventually be configurable
     var killOnQuit = false
+    var dyingTicks = 200
 
     override fun onEnable() {
         nms = SimpleNMS() // For now, all supported versions can use the same nms code
+
         dyingPlayerHandler = DyingPlayerHandler(this)
         server.pluginManager.registerEvents(dyingPlayerHandler, this)
+        dyingPlayerHandler.startTask()
+
         redScreenHandler = RedScreenHandler(this)
         server.pluginManager.registerEvents(redScreenHandler, this)
+
         dyingBossActionBarManager = DyingBossActionBarManager(this)
         server.pluginManager.registerEvents(dyingBossActionBarManager, this)
+
         metrics = Metrics(this, BSTATS_ID)
         this.logger.info("Enabled!")
     }

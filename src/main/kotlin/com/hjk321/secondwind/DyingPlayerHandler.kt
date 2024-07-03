@@ -19,21 +19,53 @@ import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerQuitEvent
 import org.bukkit.persistence.PersistentDataType
 
-internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
-    private val dyingKey = NamespacedKey(this.plugin, "dying")
+const val DYING_NOW = 0
+const val NOT_DYING = -1
 
-    fun checkDyingTag(player:Player): Boolean {
-        return player.persistentDataContainer.has(dyingKey, PersistentDataType.BOOLEAN) &&
-            (player.persistentDataContainer.get(dyingKey, PersistentDataType.BOOLEAN) == true)
+internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
+
+    private class DyingPlayerHandlerTask(private val handler: DyingPlayerHandler) : Runnable {
+        override fun run() {
+            // TODO only iterate over dying players
+            handler.plugin.server.onlinePlayers.forEach { player ->
+                if (handler.decrementDyingTicks(player) == DYING_NOW) {
+                    player.health = 0.0
+                }
+            }
+        }
     }
 
-    private fun removeDyingTag(player:Player) {
+    fun startTask() {
+        Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, task, 1, 1)
+    }
+
+    private val dyingKey = NamespacedKey(this.plugin, "dying")
+    private val task = DyingPlayerHandlerTask(this)
+
+    fun checkDyingTag(player: Player): Boolean {
+        return (player.persistentDataContainer.get(dyingKey, PersistentDataType.INTEGER) ?: NOT_DYING) >= DYING_NOW
+    }
+
+    private fun getDyingTicks(player: Player) : Int {
+        return player.persistentDataContainer.get(dyingKey, PersistentDataType.INTEGER) ?: NOT_DYING
+    }
+
+    private fun removeDyingTag(player: Player) {
         player.persistentDataContainer.remove(dyingKey)
     }
 
     private fun addDyingTag(player: Player) {
-        player.persistentDataContainer.remove(dyingKey) // In case it's false or the wrong type
-        player.persistentDataContainer.set(dyingKey, PersistentDataType.BOOLEAN, true)
+        player.persistentDataContainer.remove(dyingKey) // In case it's a bad value or the wrong type
+        player.persistentDataContainer.set(dyingKey, PersistentDataType.INTEGER, plugin.dyingTicks)
+    }
+
+    /// Returns the new value after decrementing.
+    private fun decrementDyingTicks(player: Player) : Int {
+        val ticks = getDyingTicks(player)
+        if (ticks <= NOT_DYING)
+            return NOT_DYING
+        player.persistentDataContainer.set(dyingKey, PersistentDataType.INTEGER, ticks - 1)
+        return ticks - 1
     }
 
     private fun startDying(player: Player) {
