@@ -1,7 +1,11 @@
 package com.hjk321.secondwind
 
+import com.google.gson.JsonParseException
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer
 import org.bukkit.*
 import org.bukkit.attribute.Attribute
+import org.bukkit.damage.DamageSource
 import org.bukkit.entity.Player
 import org.bukkit.entity.Pose
 import org.bukkit.event.EventHandler
@@ -41,6 +45,7 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
     }
 
     private val dyingKey = NamespacedKey(this.plugin, "dying")
+    private val deathMessageKey = NamespacedKey(this.plugin, "death_message")
 
     fun checkDyingTag(player: Player): Boolean {
         return (player.persistentDataContainer.get(dyingKey, PersistentDataType.INTEGER) ?: NOT_DYING) >= DYING_NOW
@@ -69,6 +74,25 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         return ticks - 1
     }
 
+    private fun storeDeathMessage(player: Player, damage: Double, damageSource: DamageSource) {
+        val deathMessage = plugin.nms.getDeathMessage(player, damage, damageSource)
+        val serialized = GsonComponentSerializer.gson().serialize(deathMessage)
+        player.persistentDataContainer.set(deathMessageKey, PersistentDataType.STRING, serialized)
+    }
+
+    private fun getDeathMessage(player: Player) : Component? {
+        val serialized = player.persistentDataContainer.get(deathMessageKey, PersistentDataType.STRING) ?: return null
+        return try {
+            GsonComponentSerializer.gson().deserialize(serialized)
+        } catch (ex: JsonParseException) {
+            null
+        }
+    }
+
+    private fun removeDeathMessage(player: Player) {
+        player.persistentDataContainer.remove(deathMessageKey)
+    }
+
     private fun startDying(player: Player) {
         addDyingTag(player)
         player.health = 0.5
@@ -93,6 +117,7 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         if (!checkDyingTag(player))
             return
         removeDyingTag(player)
+        removeDeathMessage(player)
         player.removePotionEffect(PotionEffectType.SLOWNESS)
         player.removePotionEffect(PotionEffectType.MINING_FATIGUE)
         player.removePotionEffect(PotionEffectType.WEAKNESS)
@@ -116,7 +141,7 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
             return // the kill command bypasses second wind
         if ((player.gameMode == GameMode.CREATIVE) || (player.gameMode == GameMode.SPECTATOR))
             return
-        if (event.damage >= player.health) { // TODO more robust check
+        if (event.finalDamage >= player.health) { // TODO more robust check
             if ((player.inventory.itemInOffHand.type == Material.TOTEM_OF_UNDYING)
                 || (player.inventory.itemInMainHand.type == Material.TOTEM_OF_UNDYING)) {
                 return // Defer to vanilla totem logic. TODO config for alternate totem behavior
@@ -127,9 +152,19 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
                 event.isCancelled = true
                 return
             }
+
+            storeDeathMessage(player, event.damage, event.damageSource)
             event.damage = 0.0
             startDying(player)
         }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH)
+    fun setDeathMessage(event: PlayerDeathEvent) {
+        if (event.isCancelled)
+            return
+        event.deathMessage(getDeathMessage(event.player) ?: return)
+        // TODO make a config option to print the death message when player is knocked down, then set it to null here
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -137,6 +172,7 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         if (event.isCancelled)
             return
         removeDyingTag(event.player)
+        removeDeathMessage(event.player)
         event.player.setPose(Pose.DYING, false)
     }
 
