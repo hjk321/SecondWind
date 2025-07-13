@@ -6,12 +6,14 @@ import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer
 import org.bukkit.*
 import org.bukkit.attribute.Attribute
 import org.bukkit.damage.DamageSource
+import org.bukkit.entity.Mob
 import org.bukkit.entity.Player
 import org.bukkit.entity.Pose
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
 import org.bukkit.event.entity.EntityDamageEvent
+import org.bukkit.event.entity.EntityDeathEvent
 import org.bukkit.event.entity.EntityRegainHealthEvent
 import org.bukkit.event.entity.PlayerDeathEvent
 import org.bukkit.potion.PotionEffect
@@ -87,7 +89,7 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         val serialized = player.persistentDataContainer.get(deathMessageKey, PersistentDataType.STRING) ?: return null
         return try {
             GsonComponentSerializer.gson().deserialize(serialized)
-        } catch (ex: JsonParseException) {
+        } catch (_: JsonParseException) {
             null
         }
     }
@@ -111,12 +113,12 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
             PotionEffectType.WEAKNESS, PotionEffect.INFINITE_DURATION,
             0, false, false, false)
         )
-        player.setPose(Pose.SWIMMING, true)
+        player.setPose(Pose.SWIMMING, true) // FIXME this messes up shooting bows and crossbows. maybe splash potions?
         plugin.redScreenHandler.sendDyingRedScreenEffect(player)
         plugin.dyingBossBarHandler.startDyingBossBar(player)
     }
 
-    private fun secondWind(player: Player) {
+    private fun secondWind(player: Player, playSound: Boolean) {
         if (!checkDyingTag(player))
             return
         removeDyingTag(player)
@@ -124,7 +126,7 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         player.removePotionEffect(PotionEffectType.SLOWNESS)
         player.removePotionEffect(PotionEffectType.MINING_FATIGUE)
         player.removePotionEffect(PotionEffectType.WEAKNESS)
-        // TODO remove other bad effects
+        // TODO remove other bad effects?
         // TODO multiple effects of the same type are supported, so we should only remove the infinite versions?
 
         player.health = 1.0 // TODO configurable
@@ -133,6 +135,8 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         player.setPose(Pose.STANDING, false)
         plugin.redScreenHandler.clearDyingScreenEffect(player)
         plugin.dyingBossBarHandler.stopDyingBossBar(player)
+        if (playSound)
+            player.playSound(player, Sound.ITEM_TOTEM_USE, 0.5f, 2.0f) // TODO config
     }
 
     @EventHandler(priority = EventPriority.HIGH)
@@ -140,10 +144,11 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         if (event.entity !is Player)
             return
         val player = event.entity as Player
-        if (event.cause == EntityDamageEvent.DamageCause.KILL)
+        if (event.cause == EntityDamageEvent.DamageCause.KILL) // TODO configurable ignored damage types
             return // the kill command bypasses second wind
         if ((player.gameMode == GameMode.CREATIVE) || (player.gameMode == GameMode.SPECTATOR))
             return
+        // TODO grace period of 0.5 seconds after second wind - allows tactics like lighting tnt to revive
         if (event.finalDamage >= player.health) { // TODO more robust check
             if ((player.inventory.itemInOffHand.type == Material.TOTEM_OF_UNDYING)
                 || (player.inventory.itemInMainHand.type == Material.TOTEM_OF_UNDYING)) {
@@ -186,14 +191,14 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
             return
         val gamemode = event.newGameMode
         if ((gamemode == GameMode.CREATIVE) || (gamemode == GameMode.SPECTATOR))
-            secondWind(event.player)
+            secondWind(event.player, false)
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     fun reviveOnTotem(event: EntityResurrectEvent) {
         if ((event.entity !is Player) || (event.isCancelled))
             return
-        secondWind(event.entity as Player)
+        secondWind(event.entity as Player, false)
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -225,6 +230,19 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         } else {
             if (!event.player.isDead)
                 event.player.health = 0.0 // Shouldn't happen, but perhaps the config changed since they last logged in.
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    fun revivePlayerOnMobKill(event: EntityDeathEvent) {
+        if (event.isCancelled)
+            return
+        if (event.entity !is Mob)
+            return
+        // TODO config for only direct kills
+        val killer = event.damageSource.causingEntity
+        if (killer is Player && checkDyingTag(killer)) {
+            secondWind(killer, true)
         }
     }
 }
