@@ -1,4 +1,4 @@
-package com.hjk321.secondwind
+package gg.hjk.secondwind
 
 import io.papermc.paper.event.world.border.WorldBorderBoundsChangeEvent
 import io.papermc.paper.event.world.border.WorldBorderBoundsChangeFinishEvent

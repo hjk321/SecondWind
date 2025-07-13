@@ -1,4 +1,4 @@
-package com.hjk321.secondwind
+package gg.hjk.secondwind
 
 import io.papermc.paper.command.brigadier.Commands
 import io.papermc.paper.plugin.bootstrap.BootstrapContext
@@ -11,13 +11,13 @@ import org.jetbrains.annotations.ApiStatus.Internal
 @Suppress("unused") // Class invoked by paper-plugin.yml
 class SecondWindBootstrap : PluginBootstrap {
     override fun bootstrap(context: BootstrapContext) {
-        val manager = context.lifecycleManager
-        manager.registerEventHandler<ReloadableRegistrarEvent<Commands?>>(
-            LifecycleEvents.COMMANDS
-        ) { event: ReloadableRegistrarEvent<Commands?> ->
-            val commands = event.registrar()
-            commands.register("secondwind", "SecondWind admin command", listOf("sw"),
-                SecondWindCommand())
-        }
+//        val manager = context.lifecycleManager
+//        manager.registerEventHandler<ReloadableRegistrarEvent<Commands?>>(
+//            LifecycleEvents.COMMANDS
+//        ) { event: ReloadableRegistrarEvent<Commands?> ->
+//            val commands = event.registrar()
+//            commands!!.register("secondwind", "SecondWind admin command", listOf("sw"),
+//                SecondWindCommand())
+//        }
     }
 }

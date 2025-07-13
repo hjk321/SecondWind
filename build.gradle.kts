@@ -1,12 +1,12 @@
 plugins {
-    kotlin("jvm") version "1.9.23"
-    id("io.github.goooler.shadow") version "8.1.7"
-    id("io.papermc.paperweight.userdev") version "1.7.1"
+    kotlin("jvm") version "2.2.0"
+    id("io.github.goooler.shadow") version "8.1.8"
+    id("io.papermc.paperweight.userdev") version "2.0.0-beta.18"
     id("net.minecrell.plugin-yml.paper") version "0.6.0"
     id("net.minecrell.plugin-yml.bukkit") version "0.6.0"
 }
 
-group = "com.hjk321.secondwind"
+group = "gg.hjk.secondwind"
 version = "0.5-SNAPSHOT"
 description = "Do not go gentle into that good night."
 project.ext["author"] = "hjk321"
@@ -18,9 +18,9 @@ repositories {
 }
 
 dependencies {
-    paperweight.paperDevBundle("1.20.6-R0.1-SNAPSHOT")
+    paperweight.paperDevBundle("1.21.5-R0.1-SNAPSHOT")
     implementation("io.papermc:paper-trail:1.0.1")
-    implementation("org.bstats:bstats-bukkit:3.0.2")
+    implementation("org.bstats:bstats-bukkit:3.1.0")
 }
 
 kotlin {
@@ -28,15 +28,15 @@ kotlin {
 }
 
 paper {
-    apiVersion = "1.20.6"
-    main = "com.hjk321.secondwind.SecondWind"
-    bootstrapper = "com.hjk321.secondwind.SecondWindBootstrap"
-    loader = "com.hjk321.secondwind.SecondWindLoader"
+    apiVersion = "1.21.5"
+    main = "gg.hjk.secondwind.SecondWind"
+    bootstrapper = "gg.hjk.secondwind.SecondWindBootstrap"
+    loader = "gg.hjk.secondwind.SecondWindLoader"
 }
 
 bukkit {
     apiVersion = "1.13"
-    main = "com.hjk321.secondwind.papertrail.RequiresPaperPlugins"
+    main = "gg.hjk.secondwind.papertrail.RequiresPaperPlugins"
 }
 
 tasks.shadowJar {
@@ -46,7 +46,7 @@ tasks.shadowJar {
     exclude("org/slf4j/**")
     exclude("org/jetbrains/annotations/**")
 
-    relocate("kotlin", "com.hjk321.secondwind.kotlin")
-    relocate("io.papermc.papertrail", "com.hjk321.secondwind.papertrail")
-    relocate("org.bstats", "com.hjk321.secondwind.bstats")
+    relocate("kotlin", "gg.hjk.secondwind.kotlin")
+    relocate("io.papermc.papertrail", "gg.hjk.secondwind.papertrail")
+    relocate("org.bstats", "gg.hjk.secondwind.bstats")
 }

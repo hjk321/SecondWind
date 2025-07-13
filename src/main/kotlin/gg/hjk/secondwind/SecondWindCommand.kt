@@ -1,4 +1,4 @@
-package com.hjk321.secondwind
+package gg.hjk.secondwind
 
 import io.papermc.paper.command.brigadier.BasicCommand
 import io.papermc.paper.command.brigadier.CommandSourceStack

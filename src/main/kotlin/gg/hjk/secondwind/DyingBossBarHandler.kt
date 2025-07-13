@@ -1,4 +1,4 @@
-package com.hjk321.secondwind
+package gg.hjk.secondwind
 
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component

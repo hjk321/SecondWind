@@ -1,4 +1,4 @@
-package com.hjk321.secondwind
+package gg.hjk.secondwind
 
 import com.google.gson.JsonParseException
 import net.kyori.adventure.text.Component
@@ -32,6 +32,9 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         override fun run() {
             // TODO only iterate over dying players
             handler.plugin.server.onlinePlayers.forEach { player ->
+                if (!player.isValid) {
+                    return
+                }
                 if (handler.decrementDyingTicks(player) == DYING_NOW) {
                     player.health = 0.0
                 }
@@ -124,7 +127,7 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         // TODO remove other bad effects
         // TODO multiple effects of the same type are supported, so we should only remove the infinite versions?
 
-        player.health = 1.0
+        player.health = 1.0 // TODO configurable
         player.addPotionEffect(PotionEffect(PotionEffectType.REGENERATION,
             100, 0, false, false, false))
         player.setPose(Pose.STANDING, false)
@@ -153,6 +156,7 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
                 return
             }
 
+            // Start dying
             storeDeathMessage(player, event.damage, event.damageSource)
             event.damage = 0.0
             startDying(player)
@@ -195,7 +199,7 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     fun popTotemEarly(event: PlayerInteractEvent) {
         if (event.hasItem() && (event.item?.type == Material.TOTEM_OF_UNDYING) && checkDyingTag(event.player)) {
-            event.player.damage(event.player.getAttribute(Attribute.GENERIC_MAX_HEALTH)!!.value) // todo dont assert
+            event.player.damage(event.player.getAttribute(Attribute.MAX_HEALTH)!!.value) // todo dont assert
         }
     }
 

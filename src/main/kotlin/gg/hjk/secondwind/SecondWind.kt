@@ -1,7 +1,7 @@
-package com.hjk321.secondwind
+package gg.hjk.secondwind
 
-import com.hjk321.secondwind.nms.NMS
-import com.hjk321.secondwind.nms.SimpleNMS
+import gg.hjk.secondwind.nms.NMS
+import gg.hjk.secondwind.nms.SimpleNMS
 import org.bstats.bukkit.Metrics
 import org.bukkit.plugin.java.JavaPlugin
 import org.jetbrains.annotations.ApiStatus.Internal

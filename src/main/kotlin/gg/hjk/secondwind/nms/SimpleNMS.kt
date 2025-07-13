@@ -1,4 +1,4 @@
-package com.hjk321.secondwind.nms
+package gg.hjk.secondwind.nms
 
 import io.papermc.paper.adventure.PaperAdventure
 import net.kyori.adventure.text.Component
