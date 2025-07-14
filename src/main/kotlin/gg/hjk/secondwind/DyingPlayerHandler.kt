@@ -32,6 +32,9 @@ const val DYING_NOW = 0
 const val NOT_DYING = -1
 const val POPPING_TOTEM = -1337
 
+const val INVULN_WEARING_OFF = 0
+const val NOT_INVULNERABLE = -1
+
 const val STAND_TICKS = 12
 
 internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
@@ -39,8 +42,10 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
     private class DyingPlayerHandlerTask(private val handler: DyingPlayerHandler) : Runnable {
         override fun run() {
             handler.plugin.server.onlinePlayers.forEach { player ->
-                if (!player.isValid || player.isDead || !handler.checkDyingTag(player))
+                if (!player.isValid || player.isDead)
                     return@forEach
+
+                handler.decrementInvulnTicks(player)
 
                 if (handler.getStandForAttackTicks(player) > DYING_NOW) {
                     if (handler.decrementStandForAttackTicks(player) == DYING_NOW) {
@@ -72,6 +77,7 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
     private val dyingKey = NamespacedKey(this.plugin, "dying")
     private val deathMessageKey = NamespacedKey(this.plugin, "death_message")
     private val standForAttackKey = NamespacedKey(this.plugin, "stand_for_attack")
+    private val invulnKey = NamespacedKey(this.plugin, "invuln")
 
     fun checkDyingTag(player: Player): Boolean {
         return (player.persistentDataContainer.get(dyingKey, PersistentDataType.INTEGER) ?: NOT_DYING) >= DYING_NOW
@@ -143,11 +149,41 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
     fun setPoppingTotem(player: Player) {
         player.persistentDataContainer.remove(dyingKey) // In case it's a bad value or the wrong type
         player.persistentDataContainer.set(dyingKey, PersistentDataType.INTEGER, POPPING_TOTEM)
+        removeInvulnTag(player)
+    }
+
+    fun checkInvulnTag(player: Player): Boolean {
+        return ((player.persistentDataContainer.get(invulnKey, PersistentDataType.INTEGER) ?: NOT_INVULNERABLE) >= INVULN_WEARING_OFF)
+                && (!checkDyingTag(player))
+    }
+
+    fun getInvulnTicks(player: Player) : Int {
+        return if (!checkDyingTag(player)) player.persistentDataContainer.get(invulnKey, PersistentDataType.INTEGER) ?: NOT_INVULNERABLE
+            else NOT_INVULNERABLE
+    }
+
+    private fun removeInvulnTag(player: Player) {
+        player.persistentDataContainer.remove(invulnKey)
+    }
+
+    private fun addInvulnTag(player: Player) {
+        player.persistentDataContainer.remove(invulnKey) // In case it's a bad value or the wrong type
+        player.persistentDataContainer.set(invulnKey, PersistentDataType.INTEGER, plugin.invulnTicks)
+    }
+
+    /// Returns the new value after decrementing.
+    private fun decrementInvulnTicks(player: Player) : Int {
+        val ticks = getInvulnTicks(player)
+        if (ticks <= NOT_INVULNERABLE)
+            return NOT_INVULNERABLE
+        player.persistentDataContainer.set(invulnKey, PersistentDataType.INTEGER, ticks - 1)
+        return ticks - 1
     }
 
     private fun startDying(player: Player) {
         addDyingTag(player)
-        player.health = 0.5
+        removeInvulnTag(player)
+        player.health = 0.1
         player.addPotionEffect(PotionEffect(
             PotionEffectType.SLOWNESS, PotionEffect.INFINITE_DURATION,
             4, false, false, false)
@@ -171,6 +207,7 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         removeDyingTag(player)
         removeDeathMessage(player)
         setStandForAttackTicks(player, NOT_DYING)
+        addInvulnTag(player)
         player.removePotionEffect(PotionEffectType.SLOWNESS)
         player.removePotionEffect(PotionEffectType.MINING_FATIGUE)
         player.removePotionEffect(PotionEffectType.WEAKNESS)
@@ -206,15 +243,14 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
             return // the kill command bypasses second wind
         if ((player.gameMode == GameMode.CREATIVE) || (player.gameMode == GameMode.SPECTATOR))
             return
-        // TODO grace period of 0.5 seconds after second wind - allows tactics like lighting tnt to revive
         if (event.finalDamage >= player.health) { // TODO more robust check
             if (((player.inventory.itemInOffHand.type == Material.TOTEM_OF_UNDYING)
                 || (player.inventory.itemInMainHand.type == Material.TOTEM_OF_UNDYING))
-                && (!checkDyingTag(player) || checkPoppingTotem(player))) {
+                && ((!checkDyingTag(player) || checkPoppingTotem(player)) && !checkInvulnTag(player))) {
                 return // Defer to vanilla totem logic.
             }
-            if (checkDyingTag(player)) {
-                // prevent damage while dying
+            if (checkDyingTag(player) || checkInvulnTag(player)) {
+                // prevent damage while dying or invulnerable
                 event.isCancelled = true
                 return
             }
@@ -245,6 +281,7 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
             return
         removeDyingTag(event.player)
         removeDeathMessage(event.player)
+        removeInvulnTag(event.player)
         setStandForAttackTicks(event.player, NOT_DYING)
         event.player.setPose(Pose.DYING, false)
     }
@@ -254,8 +291,10 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         if (event.isCancelled)
             return
         val gamemode = event.newGameMode
-        if ((gamemode == GameMode.CREATIVE) || (gamemode == GameMode.SPECTATOR))
+        if ((gamemode == GameMode.CREATIVE) || (gamemode == GameMode.SPECTATOR)) {
             secondWind(event.player, false)
+            removeInvulnTag(event.player)
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -282,6 +321,7 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     fun killIfLeaveGameWhileDying(event: PlayerQuitEvent) {
+        removeInvulnTag(event.player)
         if (plugin.killOnQuit && checkDyingTag(event.player)) {
             event.player.health = 0.0 // Bypasses damage event but still triggers death event
         }
@@ -289,6 +329,7 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     fun handlePlayerJoinWhileDying(event: PlayerJoinEvent) {
+        removeInvulnTag(event.player)
         if (!plugin.killOnQuit) {
             if (checkDyingTag(event.player)) {
                 event.player.setPose(Pose.SWIMMING, true)

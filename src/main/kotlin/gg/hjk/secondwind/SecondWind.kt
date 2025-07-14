@@ -19,7 +19,8 @@ class SecondWind : JavaPlugin() {
     // TODO these should eventually be configurable
     var killOnQuit = false
     var dyingTicks = 200
-    var dyingGracePeriodTicks = 10
+    var dyingGracePeriodTicks = 8
+    var invulnTicks = 30
 
     override fun onEnable() {
         nms = SimpleNMS() // For now, all supported versions can use the same nms code
