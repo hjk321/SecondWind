@@ -68,10 +68,7 @@ internal class SimpleNMS : NMS {
         val p = player.handle
 
         try {
-            if (updatePlayerPoseMethod != null)
-                updatePlayerPoseMethod.invoke(p)
-            else
-                player.setPose(Pose.STANDING, false)
+            updatePlayerPoseMethod?.invoke(p)
         } catch (e: Exception) {
             player.setPose(Pose.STANDING, false)
             e.printStackTrace()

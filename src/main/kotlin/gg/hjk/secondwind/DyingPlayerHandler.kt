@@ -12,6 +12,7 @@ import org.bukkit.entity.Pose
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
+import org.bukkit.event.block.Action
 import org.bukkit.event.entity.EntityDamageEvent
 import org.bukkit.event.entity.EntityDeathEvent
 import org.bukkit.event.entity.EntityRegainHealthEvent
@@ -28,6 +29,7 @@ import org.bukkit.persistence.PersistentDataType
 
 const val DYING_NOW = 0
 const val NOT_DYING = -1
+const val POPPING_TOTEM = -1337
 
 const val STAND_TICKS = 10
 
@@ -47,6 +49,16 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
                 }
 
                 if (handler.decrementDyingTicks(player) == DYING_NOW) {
+                    // If we're holding a totem, we'd rather use it than die
+                    println("Main ${player.inventory.itemInMainHand.type } Off ${player.inventory.itemInOffHand.type}")
+                    if ((player.inventory.itemInOffHand.type == Material.TOTEM_OF_UNDYING)
+                                || (player.inventory.itemInMainHand.type == Material.TOTEM_OF_UNDYING)) {
+                        handler.setPoppingTotem(player)
+                        player.damage(player.getAttribute(Attribute.MAX_HEALTH)!!.value) // todo dont assert
+                        return
+                    }
+
+                    // rip
                     player.health = 0.0
                 }
             }
@@ -116,12 +128,22 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         player.persistentDataContainer.set(standForAttackKey, PersistentDataType.INTEGER, ticks)
     }
 
+    /// Returns the new value after decrementing.
     private fun decrementStandForAttackTicks(player: Player): Int {
         val ticks = getStandForAttackTicks(player)
         if (ticks <= NOT_DYING)
             return NOT_DYING
         player.persistentDataContainer.set(standForAttackKey, PersistentDataType.INTEGER, ticks - 1)
         return ticks - 1
+    }
+
+    private fun checkPoppingTotem(player: Player): Boolean {
+        return (player.persistentDataContainer.get(dyingKey, PersistentDataType.INTEGER) ?: NOT_DYING) == POPPING_TOTEM
+    }
+
+    fun setPoppingTotem(player: Player) {
+        player.persistentDataContainer.remove(dyingKey) // In case it's a bad value or the wrong type
+        player.persistentDataContainer.set(dyingKey, PersistentDataType.INTEGER, POPPING_TOTEM)
     }
 
     private fun startDying(player: Player) {
@@ -139,13 +161,13 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
             PotionEffectType.WEAKNESS, PotionEffect.INFINITE_DURATION,
             0, false, false, false)
         )
-        player.setPose(Pose.SWIMMING, true) // FIXME this messes up shooting bows and crossbows. maybe splash potions?
+        player.setPose(Pose.SWIMMING, true)
         plugin.redScreenHandler.sendDyingRedScreenEffect(player)
         plugin.dyingBossBarHandler.startDyingBossBar(player)
     }
 
     private fun secondWind(player: Player, playSound: Boolean) {
-        if (!checkDyingTag(player))
+        if (!checkDyingTag(player) && !checkPoppingTotem(player))
             return
         removeDyingTag(player)
         removeDeathMessage(player)
@@ -187,10 +209,10 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
             return
         // TODO grace period of 0.5 seconds after second wind - allows tactics like lighting tnt to revive
         if (event.finalDamage >= player.health) { // TODO more robust check
-            if ((player.inventory.itemInOffHand.type == Material.TOTEM_OF_UNDYING)
-                || (player.inventory.itemInMainHand.type == Material.TOTEM_OF_UNDYING)) {
-                return // Defer to vanilla totem logic. TODO config for alternate totem behavior
-                // FIXME the totem is currently popped when taking any damage from dying instead of just when we want
+            if (((player.inventory.itemInOffHand.type == Material.TOTEM_OF_UNDYING)
+                || (player.inventory.itemInMainHand.type == Material.TOTEM_OF_UNDYING))
+                && (!checkDyingTag(player) || checkPoppingTotem(player))) {
+                return // Defer to vanilla totem logic.
             }
             if (checkDyingTag(player)) {
                 // prevent damage while dying
@@ -240,8 +262,10 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
-    fun popTotemEarly(event: PlayerInteractEvent) {
-        if (event.hasItem() && (event.item?.type == Material.TOTEM_OF_UNDYING) && checkDyingTag(event.player)) {
+    fun popTotem(event: PlayerInteractEvent) {
+        if (event.action.isRightClick && event.hasItem() && (event.item?.type == Material.TOTEM_OF_UNDYING)
+            && checkDyingTag(event.player)) {
+            setPoppingTotem(event.player)
             event.player.damage(event.player.getAttribute(Attribute.MAX_HEALTH)!!.value) // todo dont assert
         }
     }
