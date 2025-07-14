@@ -1,6 +1,8 @@
 package gg.hjk.secondwind
 
+import com.destroystokyo.paper.event.player.PlayerLaunchProjectileEvent
 import com.google.gson.JsonParseException
+import io.papermc.paper.event.player.PrePlayerAttackEntityEvent
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer
 import org.bukkit.*
@@ -12,7 +14,6 @@ import org.bukkit.entity.Pose
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
-import org.bukkit.event.block.Action
 import org.bukkit.event.entity.EntityDamageEvent
 import org.bukkit.event.entity.EntityDeathEvent
 import org.bukkit.event.entity.EntityRegainHealthEvent
@@ -31,7 +32,7 @@ const val DYING_NOW = 0
 const val NOT_DYING = -1
 const val POPPING_TOTEM = -1337
 
-const val STAND_TICKS = 10
+const val STAND_TICKS = 12
 
 internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
 
@@ -50,7 +51,6 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
 
                 if (handler.decrementDyingTicks(player) == DYING_NOW) {
                     // If we're holding a totem, we'd rather use it than die
-                    println("Main ${player.inventory.itemInMainHand.type } Off ${player.inventory.itemInOffHand.type}")
                     if ((player.inventory.itemInOffHand.type == Material.TOTEM_OF_UNDYING)
                                 || (player.inventory.itemInMainHand.type == Material.TOTEM_OF_UNDYING)) {
                         handler.setPoppingTotem(player)
@@ -224,6 +224,11 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
             storeDeathMessage(player, event.damage, event.damageSource)
             event.damage = 0.0
             startDying(player)
+
+            // Revive killer if a dying player
+            val killer = event.damageSource.causingEntity
+            if (killer is Player && checkDyingTag(killer))
+                secondWind(killer, true)
         }
     }
 
@@ -324,5 +329,34 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         val loc = arrow.location
         loc.y += eye
         arrow.teleport(loc)
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    fun dyingPlayerStandsOnLaunchProjectile(event: PlayerLaunchProjectileEvent) {
+        if (event.isCancelled)
+            return
+        if (!checkDyingTag(event.player))
+            return
+
+        var eye = event.player.eyeHeight
+        standForAttack(event.player)
+        eye = event.player.eyeHeight - eye
+
+        val projectile = event.projectile
+        val loc = projectile.location
+        loc.y += eye
+        projectile.teleport(loc)
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    fun dyingPlayerStandsOnMeleeAttack(event: PrePlayerAttackEntityEvent) {
+        if (event.isCancelled)
+            return
+        if (!checkDyingTag(event.player))
+            return
+        if (event.attacked !is Mob && event.attacked !is Player)
+            return
+
+        standForAttack(event.player)
     }
 }
