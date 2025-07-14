@@ -18,7 +18,7 @@ class SecondWind : JavaPlugin() {
 
     // TODO these should eventually be configurable
     var killOnQuit = false
-    var dyingTicks = 200
+    var dyingTicks = 1000 // 200
     var dyingGracePeriodTicks = 10
 
     override fun onEnable() {

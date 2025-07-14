@@ -11,4 +11,5 @@ internal interface NMS {
     fun getWorldBorderRemainingTime(worldBorder: WorldBorder) : Long
     fun getWorldBorderTargetSize(worldBorder: WorldBorder) : Double
     fun getDeathMessage(player: Player, damage: Double, source: DamageSource) : Component
+    fun updatePlayerPose(player: Player)
 }

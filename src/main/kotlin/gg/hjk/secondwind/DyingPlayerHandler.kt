@@ -19,6 +19,7 @@ import org.bukkit.event.entity.PlayerDeathEvent
 import org.bukkit.potion.PotionEffect
 import org.bukkit.potion.PotionEffectType
 import org.bukkit.event.entity.EntityResurrectEvent
+import org.bukkit.event.entity.EntityShootBowEvent
 import org.bukkit.event.player.PlayerGameModeChangeEvent
 import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.event.player.PlayerJoinEvent
@@ -28,15 +29,23 @@ import org.bukkit.persistence.PersistentDataType
 const val DYING_NOW = 0
 const val NOT_DYING = -1
 
+const val STAND_TICKS = 10
+
 internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
 
     private class DyingPlayerHandlerTask(private val handler: DyingPlayerHandler) : Runnable {
         override fun run() {
             // TODO only iterate over dying players
             handler.plugin.server.onlinePlayers.forEach { player ->
-                if (!player.isValid) {
+                if (!player.isValid)
                     return
+
+                if (handler.getStandForAttackTicks(player) > DYING_NOW) {
+                    if (handler.decrementStandForAttackTicks(player) == DYING_NOW) {
+                        player.setPose(Pose.SWIMMING, true)
+                    }
                 }
+
                 if (handler.decrementDyingTicks(player) == DYING_NOW) {
                     player.health = 0.0
                 }
@@ -51,6 +60,7 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
 
     private val dyingKey = NamespacedKey(this.plugin, "dying")
     private val deathMessageKey = NamespacedKey(this.plugin, "death_message")
+    private val standForAttackKey = NamespacedKey(this.plugin, "stand_for_attack")
 
     fun checkDyingTag(player: Player): Boolean {
         return (player.persistentDataContainer.get(dyingKey, PersistentDataType.INTEGER) ?: NOT_DYING) >= DYING_NOW
@@ -98,6 +108,22 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         player.persistentDataContainer.remove(deathMessageKey)
     }
 
+    private fun getStandForAttackTicks(player: Player): Int {
+        return player.persistentDataContainer.get(standForAttackKey, PersistentDataType.INTEGER) ?: NOT_DYING
+    }
+
+    private fun setStandForAttackTicks(player: Player, ticks: Int) {
+        player.persistentDataContainer.set(standForAttackKey, PersistentDataType.INTEGER, ticks)
+    }
+
+    private fun decrementStandForAttackTicks(player: Player): Int {
+        val ticks = getStandForAttackTicks(player)
+        if (ticks <= NOT_DYING)
+            return NOT_DYING
+        player.persistentDataContainer.set(standForAttackKey, PersistentDataType.INTEGER, ticks - 1)
+        return ticks - 1
+    }
+
     private fun startDying(player: Player) {
         addDyingTag(player)
         player.health = 0.5
@@ -123,6 +149,7 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
             return
         removeDyingTag(player)
         removeDeathMessage(player)
+        setStandForAttackTicks(player, NOT_DYING)
         player.removePotionEffect(PotionEffectType.SLOWNESS)
         player.removePotionEffect(PotionEffectType.MINING_FATIGUE)
         player.removePotionEffect(PotionEffectType.WEAKNESS)
@@ -132,11 +159,21 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         player.health = 1.0 // TODO configurable
         player.addPotionEffect(PotionEffect(PotionEffectType.REGENERATION,
             100, 0, false, false, false))
-        player.setPose(Pose.STANDING, false)
+        stopForcedCrawl(player)
         plugin.redScreenHandler.clearDyingScreenEffect(player)
         plugin.dyingBossBarHandler.stopDyingBossBar(player)
         if (playSound)
             player.playSound(player, Sound.ITEM_TOTEM_USE, 0.5f, 2.0f) // TODO config
+    }
+
+    private fun stopForcedCrawl(player: Player) {
+        player.setPose(Pose.STANDING, false)
+        plugin.nms.updatePlayerPose(player)
+    }
+
+    private fun standForAttack(player: Player) {
+        stopForcedCrawl(player)
+        setStandForAttackTicks(player, STAND_TICKS)
     }
 
     @EventHandler(priority = EventPriority.HIGH)
@@ -182,6 +219,7 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
             return
         removeDyingTag(event.player)
         removeDeathMessage(event.player)
+        setStandForAttackTicks(event.player, NOT_DYING)
         event.player.setPose(Pose.DYING, false)
     }
 
@@ -244,5 +282,23 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         if (killer is Player && checkDyingTag(killer)) {
             secondWind(killer, true)
         }
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    fun dyingPlayerStandsOnShootBow(event: EntityShootBowEvent) {
+        if (event.isCancelled)
+            return
+        val shooter = event.entity
+        if (shooter !is Player || !checkDyingTag(shooter))
+            return
+
+        var eye = shooter.eyeHeight
+        standForAttack(shooter)
+        eye = shooter.eyeHeight - eye
+
+        val arrow = event.projectile
+        val loc = arrow.location
+        loc.y += eye
+        arrow.teleport(loc)
     }
 }
