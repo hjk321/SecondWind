@@ -38,10 +38,9 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
 
     private class DyingPlayerHandlerTask(private val handler: DyingPlayerHandler) : Runnable {
         override fun run() {
-            // TODO only iterate over dying players
             handler.plugin.server.onlinePlayers.forEach { player ->
-                if (!player.isValid)
-                    return
+                if (!player.isValid || player.isDead || !handler.checkDyingTag(player))
+                    return@forEach
 
                 if (handler.getStandForAttackTicks(player) > DYING_NOW) {
                     if (handler.decrementStandForAttackTicks(player) == DYING_NOW) {
@@ -55,7 +54,7 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
                                 || (player.inventory.itemInMainHand.type == Material.TOTEM_OF_UNDYING)) {
                         handler.setPoppingTotem(player)
                         player.damage(player.getAttribute(Attribute.MAX_HEALTH)!!.value) // todo dont assert
-                        return
+                        return@forEach
                     }
 
                     // rip
