@@ -28,16 +28,18 @@ import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerQuitEvent
 import org.bukkit.persistence.PersistentDataType
 
-const val DYING_NOW = 0
-const val NOT_DYING = -1
-const val POPPING_TOTEM = -1337
-
-const val INVULN_WEARING_OFF = 0
-const val NOT_INVULNERABLE = -1
-
-const val STAND_TICKS = 12
-
 internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
+
+    companion object {
+        const val DYING_NOW = 0
+        const val NOT_DYING = -1
+        const val POPPING_TOTEM = -1337
+
+        const val INVULN_WEARING_OFF = 0
+        const val NOT_INVULNERABLE = -1
+
+        const val STAND_TICKS = 12
+    }
 
     private class DyingPlayerHandlerTask(private val handler: DyingPlayerHandler) : Runnable {
         override fun run() {

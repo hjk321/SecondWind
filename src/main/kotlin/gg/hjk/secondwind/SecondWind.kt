@@ -6,14 +6,18 @@ import org.bstats.bukkit.Metrics
 import org.bukkit.plugin.java.JavaPlugin
 import org.jetbrains.annotations.ApiStatus.Internal
 
-const val BSTATS_ID = 22438
-
 @Internal
 class SecondWind : JavaPlugin() {
+
+    companion object {
+        const val BSTATS_ID = 22438
+    }
+
     internal lateinit var nms : NMS
     internal lateinit var dyingPlayerHandler : DyingPlayerHandler
     internal lateinit var redScreenHandler : RedScreenHandler
     internal lateinit var dyingBossBarHandler: DyingBossBarHandler
+    internal lateinit var reviveHandler : ReviveHandler
     private lateinit var metrics : Metrics
 
     // TODO these should eventually be configurable
@@ -35,6 +39,9 @@ class SecondWind : JavaPlugin() {
         dyingBossBarHandler = DyingBossBarHandler(this)
         server.pluginManager.registerEvents(dyingBossBarHandler, this)
         dyingBossBarHandler.startTask()
+
+        reviveHandler = ReviveHandler(this)
+        server.pluginManager.registerEvents(reviveHandler, this)
 
         metrics = Metrics(this, BSTATS_ID)
         this.logger.info("Enabled!")
