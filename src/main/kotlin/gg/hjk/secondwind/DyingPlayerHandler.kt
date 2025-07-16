@@ -5,6 +5,7 @@ import com.google.gson.JsonParseException
 import io.papermc.paper.event.player.PrePlayerAttackEntityEvent
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer
+import net.kyori.adventure.util.Ticks
 import org.bukkit.*
 import org.bukkit.attribute.Attribute
 import org.bukkit.damage.DamageSource
@@ -50,6 +51,8 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
             }
         }
 
+        if (plugin.reviveHandler.isBeingRevived(player))
+            return
         if (this.decrementDyingTicks(player) == DYING_NOW) {
             // If we're holding a totem, we'd rather use it than die
             if ((player.inventory.itemInOffHand.type == Material.TOTEM_OF_UNDYING)
@@ -77,6 +80,11 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         return player.persistentDataContainer.get(dyingKey, PersistentDataType.INTEGER) ?: NOT_DYING
     }
 
+    fun setDyingTicks(player: Player, ticks: Int) {
+        player.persistentDataContainer.remove(dyingKey) // In case it's a bad value or the wrong type
+        player.persistentDataContainer.set(dyingKey, PersistentDataType.INTEGER, ticks)
+    }
+
     private fun removeDyingTag(player: Player) {
         player.persistentDataContainer.remove(dyingKey)
     }
@@ -92,6 +100,7 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         val ticks = getDyingTicks(player)
         if (ticks <= NOT_DYING)
             return NOT_DYING
+        player.persistentDataContainer.remove(dyingKey) // In case it's a bad value or the wrong type
         player.persistentDataContainer.set(dyingKey, PersistentDataType.INTEGER, ticks - 1)
         return ticks - 1
     }
@@ -142,12 +151,12 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         removeInvulnTag(player)
     }
 
-    fun checkInvulnTag(player: Player): Boolean {
+    private fun checkInvulnTag(player: Player): Boolean {
         return ((player.persistentDataContainer.get(invulnKey, PersistentDataType.INTEGER) ?: NOT_INVULNERABLE) >= INVULN_WEARING_OFF)
                 && (!checkDyingTag(player))
     }
 
-    fun getInvulnTicks(player: Player) : Int {
+    private fun getInvulnTicks(player: Player) : Int {
         return if (!checkDyingTag(player)) player.persistentDataContainer.get(invulnKey, PersistentDataType.INTEGER) ?: NOT_INVULNERABLE
             else NOT_INVULNERABLE
     }
@@ -191,7 +200,7 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         plugin.dyingBossBarHandler.startDyingBossBar(player)
     }
 
-    private fun secondWind(player: Player, playSound: Boolean) {
+    fun secondWind(player: Player, playSound: Boolean) {
         if (!checkDyingTag(player) && !checkPoppingTotem(player))
             return
         removeDyingTag(player)
@@ -204,14 +213,14 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         // TODO remove other bad effects?
         // TODO multiple effects of the same type are supported, so we should only remove the infinite versions?
 
-        player.health = 1.0 // TODO configurable
+        player.health = 5.0 // TODO configurable
         player.addPotionEffect(PotionEffect(PotionEffectType.REGENERATION,
             100, 0, false, false, false))
         stopForcedCrawl(player)
         plugin.redScreenHandler.clearDyingScreenEffect(player)
         plugin.dyingBossBarHandler.stopDyingBossBar(player)
         if (playSound)
-            player.playSound(player, Sound.ITEM_TOTEM_USE, 0.5f, 2.0f) // TODO config
+            player.world.playSound(player, Sound.ITEM_TOTEM_USE, 0.8f, 2.0f) // TODO config
     }
 
     private fun stopForcedCrawl(player: Player) {
@@ -312,7 +321,7 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
-    fun killIfLeaveGameWhileDying(event: PlayerQuitEvent) {
+    fun handlePlayerLeaveWhileDying(event: PlayerQuitEvent) {
         removeInvulnTag(event.player)
         if (plugin.killOnQuit && checkDyingTag(event.player)) {
             event.player.health = 0.0 // Bypasses damage event but still triggers death event
@@ -378,17 +387,5 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         val loc = projectile.location
         loc.y += eye
         projectile.teleport(loc)
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR)
-    fun dyingPlayerStandsOnMeleeAttack(event: PrePlayerAttackEntityEvent) {
-        if (event.isCancelled)
-            return
-        if (!checkDyingTag(event.player))
-            return
-        if (event.attacked !is Mob && event.attacked !is Player)
-            return
-
-        standForAttack(event.player)
     }
 }

@@ -3,7 +3,12 @@ package gg.hjk.secondwind
 import gg.hjk.secondwind.util.UUIDPersistentDataType
 import org.bukkit.NamespacedKey
 import org.bukkit.entity.Player
+import org.bukkit.event.EventHandler
+import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
+import org.bukkit.event.player.PlayerInteractEntityEvent
+import org.bukkit.event.player.PlayerJoinEvent
+import org.bukkit.event.player.PlayerQuitEvent
 import org.bukkit.persistence.PersistentDataAdapterContext
 import org.bukkit.persistence.PersistentDataType
 import java.nio.ByteBuffer
@@ -11,12 +16,55 @@ import java.util.UUID
 
 internal class ReviveHandler(private val plugin: SecondWind) : Listener {
 
-    fun tickRevive(player: Player) {
-        // Should only tick for dying player not reviver
+    private fun cleanupReviveState(player: Player, reviver: Player?) {
+        removeRevivedBy(player)
+        reviver?.let {
+            if (getReviveTarget(it) == player.uniqueId)
+                removeReviveTarget(it)
+        }
     }
 
-    data class PlayerReviveProgress(val uuid: UUID, val ticks: Int)
-    inner class PlayerReviveProgressType : PersistentDataType<ByteArray, PlayerReviveProgress> {
+    fun tickRevive(player: Player) {
+        val reviveProgress = getRevivedBy(player) ?: return
+        val reviver = plugin.server.getPlayer(reviveProgress.uuid)
+
+        if (!plugin.dyingPlayerHandler.checkDyingTag(player)) {
+            // Being revived but not dying? How did we get here?
+            cleanupReviveState(player, reviver)
+            return
+        }
+
+        // Invalidate if the reviver is offline, no longer targeting this player,
+        // in a different world, dead, dyinig, or are too far away.
+        if (reviver == null ||
+            !reviver.isValid || reviver.isDead ||
+            plugin.dyingPlayerHandler.checkDyingTag(reviver) ||
+            getReviveTarget(reviver) != player.uniqueId ||
+            player.world.uid != reviver.world.uid ||
+            player.location.distanceSquared(reviver.location) > plugin.reviveRadiusSquared
+        ) {
+            // Add a few extra ticks to the dying player's timer
+            var ticks = plugin.dyingPlayerHandler.getDyingTicks(player)
+            if (ticks < plugin.dyingGracePeriodTicks)
+                ticks = plugin.dyingGracePeriodTicks
+            ticks += reviveProgress.ticks.coerceAtMost(plugin.failedReviveMaxGracePeriodTicks)
+            if (ticks > plugin.dyingTicks + plugin.dyingGracePeriodTicks)
+                ticks = plugin.dyingTicks + plugin.dyingGracePeriodTicks
+
+            plugin.dyingPlayerHandler.setDyingTicks(player, ticks)
+            cleanupReviveState(player, reviver)
+            return
+        }
+
+        // Increment progress and check for completion
+        if (incrementRevivedBy(player) >= plugin.reviveTicks) {
+            cleanupReviveState(player, reviver)
+            plugin.dyingPlayerHandler.secondWind(player, true)
+        }
+    }
+
+    private data class PlayerReviveProgress(val uuid: UUID, var ticks: Int)
+    private inner class PlayerReviveProgressType : PersistentDataType<ByteArray, PlayerReviveProgress> {
         override fun getPrimitiveType(): Class<ByteArray> = ByteArray::class.java
         override fun getComplexType(): Class<PlayerReviveProgress> = PlayerReviveProgress::class.java
 
@@ -53,7 +101,11 @@ internal class ReviveHandler(private val plugin: SecondWind) : Listener {
         player.persistentDataContainer.remove(reviveTargetKey)
     }
 
-    private fun getRevivedBy(player: Player): PlayerReviveProgress? {
+    fun isBeingRevived(player: Player) : Boolean {
+        return getRevivedBy(player) != null
+    }
+
+    private fun getRevivedBy(player: Player) : PlayerReviveProgress? {
         return player.persistentDataContainer.get(revivedByKey, playerReviveProgressType)
     }
 
@@ -65,5 +117,45 @@ internal class ReviveHandler(private val plugin: SecondWind) : Listener {
 
     private fun removeRevivedBy(player: Player) {
         player.persistentDataContainer.remove(revivedByKey)
+    }
+
+    private fun incrementRevivedBy(player: Player) : Int {
+        val revivedProgress = getRevivedBy(player) ?: return 0
+        val ticks = ++revivedProgress.ticks
+        player.persistentDataContainer.remove(revivedByKey) // In case it's a bad value or the wrong type
+        player.persistentDataContainer.set(revivedByKey, playerReviveProgressType, revivedProgress)
+        return ticks
+    }
+
+    private fun tryStartReviveTarget(player: Player, target: Player) {
+        val dyingPlayerHandler = this.plugin.dyingPlayerHandler
+        val previouslyRevivedBy = getRevivedBy(target)?.uuid
+        if (dyingPlayerHandler.checkDyingTag(player) || !dyingPlayerHandler.checkDyingTag(target))
+            return
+        if (previouslyRevivedBy != null && player.uniqueId != previouslyRevivedBy) // Target being revived by someone else
+            return
+        
+        setReviveTarget(player, target)
+        if (previouslyRevivedBy == null)
+            setRevivedBy(target, player)
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    fun tryReviveOnRightClick(event: PlayerInteractEntityEvent) {
+        if (event.rightClicked !is Player)
+            return
+        tryStartReviveTarget(event.player, event.rightClicked as Player)
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    fun cleanupReviveOnLeave(event: PlayerQuitEvent) {
+        removeReviveTarget(event.player)
+        removeRevivedBy(event.player)
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    fun cleanupReviveOnJoin(event: PlayerJoinEvent) {
+        removeReviveTarget(event.player)
+        removeRevivedBy(event.player)
     }
 }

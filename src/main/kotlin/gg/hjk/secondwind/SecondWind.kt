@@ -6,6 +6,7 @@ import org.bstats.bukkit.Metrics
 import org.bukkit.Bukkit
 import org.bukkit.plugin.java.JavaPlugin
 import org.jetbrains.annotations.ApiStatus.Internal
+import kotlin.math.pow
 
 @Internal
 class SecondWind : JavaPlugin() {
@@ -27,6 +28,9 @@ class SecondWind : JavaPlugin() {
     var dyingTicks = 200
     var dyingGracePeriodTicks = 6
     var invulnTicks = 30
+    var reviveTicks = 80
+    var reviveRadiusSquared = 5.0.pow(2)
+    var failedReviveMaxGracePeriodTicks = 30
 
     override fun onEnable() {
         nms = SimpleNMS() // For now, all supported versions can use the same nms code
