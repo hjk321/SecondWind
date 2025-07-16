@@ -41,39 +41,27 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         const val STAND_TICKS = 12
     }
 
-    private class DyingPlayerHandlerTask(private val handler: DyingPlayerHandler) : Runnable {
-        override fun run() {
-            handler.plugin.server.onlinePlayers.forEach { player ->
-                if (!player.isValid || player.isDead)
-                    return@forEach
+    fun tickDyingPlayer(player: Player) {
+        this.decrementInvulnTicks(player)
 
-                handler.decrementInvulnTicks(player)
-
-                if (handler.getStandForAttackTicks(player) > DYING_NOW) {
-                    if (handler.decrementStandForAttackTicks(player) == DYING_NOW) {
-                        player.setPose(Pose.SWIMMING, true)
-                    }
-                }
-
-                if (handler.decrementDyingTicks(player) == DYING_NOW) {
-                    // If we're holding a totem, we'd rather use it than die
-                    if ((player.inventory.itemInOffHand.type == Material.TOTEM_OF_UNDYING)
-                                || (player.inventory.itemInMainHand.type == Material.TOTEM_OF_UNDYING)) {
-                        handler.setPoppingTotem(player)
-                        player.damage(player.getAttribute(Attribute.MAX_HEALTH)!!.value) // todo dont assert
-                        return@forEach
-                    }
-
-                    // rip
-                    player.health = 0.0
-                }
+        if (this.getStandForAttackTicks(player) > DYING_NOW) {
+            if (this.decrementStandForAttackTicks(player) == DYING_NOW) {
+                player.setPose(Pose.SWIMMING, true)
             }
         }
-    }
 
-    private val task = DyingPlayerHandlerTask(this)
-    fun startTask() {
-        Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, task, 1, 1)
+        if (this.decrementDyingTicks(player) == DYING_NOW) {
+            // If we're holding a totem, we'd rather use it than die
+            if ((player.inventory.itemInOffHand.type == Material.TOTEM_OF_UNDYING)
+                || (player.inventory.itemInMainHand.type == Material.TOTEM_OF_UNDYING)) {
+                this.setPoppingTotem(player)
+                player.damage(player.getAttribute(Attribute.MAX_HEALTH)!!.value) // todo dont assert
+                return
+            }
+
+            // rip
+            player.health = 0.0
+        }
     }
 
     private val dyingKey = NamespacedKey(this.plugin, "dying")
@@ -298,6 +286,8 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
             removeInvulnTag(event.player)
         }
     }
+
+    // TODO high priority resurrect event that makes sure popping totem goes through / our data gets reset if cancelled
 
     @EventHandler(priority = EventPriority.MONITOR)
     fun reviveOnTotem(event: EntityResurrectEvent) {

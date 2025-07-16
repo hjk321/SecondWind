@@ -13,27 +13,22 @@ import org.bukkit.event.entity.PlayerDeathEvent
 import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerQuitEvent
 import java.util.UUID
+import kotlin.collections.component1
+import kotlin.collections.component2
 
 internal class DyingBossBarHandler(private val plugin: SecondWind) : Listener {
 
-    private class DyingBossBarHandlerTask(private val handler: DyingBossBarHandler) : Runnable {
-        override fun run() {
-            handler.bars.forEach { (uuid, bar) ->
-                run {
-                    val player = Bukkit.getPlayer(uuid) ?: return
-                    var ticks = handler.plugin.dyingPlayerHandler.getDyingTicks(player) -
-                            handler.plugin.dyingGracePeriodTicks
-                    if (ticks < 0)
-                        ticks = 0
-                    bar.progress(ticks / handler.plugin.dyingTicks.toFloat())
-                }
+    fun updateBossBars() {
+        this.bars.forEach { (uuid, bar) ->
+            run {
+                val player = Bukkit.getPlayer(uuid) ?: return
+                var ticks = this.plugin.dyingPlayerHandler.getDyingTicks(player) -
+                        this.plugin.dyingGracePeriodTicks
+                if (ticks < 0)
+                    ticks = 0
+                bar.progress(ticks / this.plugin.dyingTicks.toFloat())
             }
         }
-    }
-
-    private val task = DyingBossBarHandlerTask(this)
-    fun startTask() {
-        Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, task, 1, 2)
     }
 
     private val bars : HashMap<UUID, BossBar> = HashMap()

@@ -11,6 +11,10 @@ import java.util.UUID
 
 internal class ReviveHandler(private val plugin: SecondWind) : Listener {
 
+    fun tickRevive(player: Player) {
+        // Should only tick for dying player not reviver
+    }
+
     data class PlayerReviveProgress(val uuid: UUID, val ticks: Int)
     inner class PlayerReviveProgressType : PersistentDataType<ByteArray, PlayerReviveProgress> {
         override fun getPrimitiveType(): Class<ByteArray> = ByteArray::class.java

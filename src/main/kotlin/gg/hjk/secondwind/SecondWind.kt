@@ -3,6 +3,7 @@ package gg.hjk.secondwind
 import gg.hjk.secondwind.nms.NMS
 import gg.hjk.secondwind.nms.SimpleNMS
 import org.bstats.bukkit.Metrics
+import org.bukkit.Bukkit
 import org.bukkit.plugin.java.JavaPlugin
 import org.jetbrains.annotations.ApiStatus.Internal
 
@@ -18,12 +19,13 @@ class SecondWind : JavaPlugin() {
     internal lateinit var redScreenHandler : RedScreenHandler
     internal lateinit var dyingBossBarHandler: DyingBossBarHandler
     internal lateinit var reviveHandler : ReviveHandler
+    private lateinit var playerTickTask: PlayerTickTask
     private lateinit var metrics : Metrics
 
     // TODO these should eventually be configurable
-    var killOnQuit = false
+    var killOnQuit = false // FIXME broken if true
     var dyingTicks = 200
-    var dyingGracePeriodTicks = 8
+    var dyingGracePeriodTicks = 6
     var invulnTicks = 30
 
     override fun onEnable() {
@@ -31,17 +33,18 @@ class SecondWind : JavaPlugin() {
 
         dyingPlayerHandler = DyingPlayerHandler(this)
         server.pluginManager.registerEvents(dyingPlayerHandler, this)
-        dyingPlayerHandler.startTask()
 
         redScreenHandler = RedScreenHandler(this)
         server.pluginManager.registerEvents(redScreenHandler, this)
 
         dyingBossBarHandler = DyingBossBarHandler(this)
         server.pluginManager.registerEvents(dyingBossBarHandler, this)
-        dyingBossBarHandler.startTask()
 
         reviveHandler = ReviveHandler(this)
         server.pluginManager.registerEvents(reviveHandler, this)
+
+        playerTickTask = PlayerTickTask(this)
+        playerTickTask.register()
 
         metrics = Metrics(this, BSTATS_ID)
         this.logger.info("Enabled!")
@@ -50,5 +53,24 @@ class SecondWind : JavaPlugin() {
     override fun onDisable() {
         if (this::metrics.isInitialized)
             metrics.shutdown()
+    }
+
+    private class PlayerTickTask(private val plugin: SecondWind) : Runnable {
+        private var isEvenTick = true
+        override fun run() {
+            plugin.server.onlinePlayers.forEach { player ->
+                if (!player.isValid || player.isDead)
+                    return@forEach
+                plugin.reviveHandler.tickRevive(player)
+                plugin.dyingPlayerHandler.tickDyingPlayer(player)
+            }
+            isEvenTick = !isEvenTick
+            if (isEvenTick)
+                plugin.dyingBossBarHandler.updateBossBars()
+        }
+
+        fun register() {
+            Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, this, 1, 1)
+        }
     }
 }
