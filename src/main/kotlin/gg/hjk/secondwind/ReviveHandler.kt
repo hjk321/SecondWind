@@ -88,7 +88,7 @@ internal class ReviveHandler(private val plugin: SecondWind) : Listener {
     private val reviveTargetKey = NamespacedKey(this.plugin, "revive_target")
     private val revivedByKey = NamespacedKey(this.plugin, "revived_by")
 
-    private fun getReviveTarget(player: Player): UUID? {
+    fun getReviveTarget(player: Player): UUID? {
         return player.persistentDataContainer.get(reviveTargetKey, UUIDPersistentDataType.uuidType)
     }
 
@@ -103,6 +103,14 @@ internal class ReviveHandler(private val plugin: SecondWind) : Listener {
 
     fun isBeingRevived(player: Player) : Boolean {
         return getRevivedBy(player) != null
+    }
+
+    fun getReviveTicks(player: Player) : Int {
+        return getRevivedBy(player)?.ticks ?: 0
+    }
+
+    fun getRevivedByPlayername(player: Player) : String? {
+        return this.plugin.server.getPlayer(getRevivedBy(player)?.uuid ?: return null)?.name
     }
 
     private fun getRevivedBy(player: Player) : PlayerReviveProgress? {
@@ -130,6 +138,7 @@ internal class ReviveHandler(private val plugin: SecondWind) : Listener {
     private fun tryStartReviveTarget(player: Player, target: Player) {
         val dyingPlayerHandler = this.plugin.dyingPlayerHandler
         val previouslyRevivedBy = getRevivedBy(target)?.uuid
+        val previousReviveTarget = getReviveTarget(player)
         if (dyingPlayerHandler.checkDyingTag(player) || !dyingPlayerHandler.checkDyingTag(target))
             return
         if (previouslyRevivedBy != null && player.uniqueId != previouslyRevivedBy) // Target being revived by someone else
@@ -138,6 +147,8 @@ internal class ReviveHandler(private val plugin: SecondWind) : Listener {
         setReviveTarget(player, target)
         if (previouslyRevivedBy == null)
             setRevivedBy(target, player)
+        if (previousReviveTarget != target.uniqueId)
+            plugin.dyingBossBarHandler.startBossBar(player, true)
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

@@ -197,7 +197,7 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         )
         player.setPose(Pose.SWIMMING, true)
         plugin.redScreenHandler.sendDyingRedScreenEffect(player)
-        plugin.dyingBossBarHandler.startDyingBossBar(player)
+        plugin.dyingBossBarHandler.startBossBar(player, false)
     }
 
     fun secondWind(player: Player, playSound: Boolean) {
@@ -218,7 +218,6 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
             100, 0, false, false, false))
         stopForcedCrawl(player)
         plugin.redScreenHandler.clearDyingScreenEffect(player)
-        plugin.dyingBossBarHandler.stopDyingBossBar(player)
         if (playSound)
             player.world.playSound(player, Sound.ITEM_TOTEM_USE, 0.8f, 2.0f) // TODO config
     }
