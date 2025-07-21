@@ -2,10 +2,8 @@ package gg.hjk.secondwind
 
 import com.destroystokyo.paper.event.player.PlayerLaunchProjectileEvent
 import com.google.gson.JsonParseException
-import io.papermc.paper.event.player.PrePlayerAttackEntityEvent
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer
-import net.kyori.adventure.util.Ticks
 import org.bukkit.*
 import org.bukkit.attribute.Attribute
 import org.bukkit.damage.DamageSource
@@ -260,7 +258,7 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
 
             // Revive killer if a dying player
             val killer = event.damageSource.causingEntity
-            if (killer is Player && checkDyingTag(killer))
+            if (killer is Player && killer.uniqueId != player.uniqueId  && checkDyingTag(killer))
                 secondWind(killer, true)
         }
     }

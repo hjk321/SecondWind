@@ -18,7 +18,7 @@ repositories {
 }
 
 dependencies {
-    paperweight.paperDevBundle("1.21.5-R0.1-SNAPSHOT")
+    paperweight.paperDevBundle("1.21.7-R0.1-SNAPSHOT")
     implementation("io.papermc:paper-trail:1.0.1")
     implementation("org.bstats:bstats-bukkit:3.1.0")
 }
@@ -28,7 +28,7 @@ kotlin {
 }
 
 paper {
-    apiVersion = "1.21.5"
+    apiVersion = "1.21.7"
     main = "gg.hjk.secondwind.SecondWind"
     bootstrapper = "gg.hjk.secondwind.SecondWindBootstrap"
     loader = "gg.hjk.secondwind.SecondWindLoader"
