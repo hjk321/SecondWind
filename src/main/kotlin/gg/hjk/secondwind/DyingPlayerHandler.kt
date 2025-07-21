@@ -3,7 +3,9 @@ package gg.hjk.secondwind
 import com.destroystokyo.paper.event.player.PlayerLaunchProjectileEvent
 import com.google.gson.JsonParseException
 import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.minimessage.MiniMessage
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer
+import net.kyori.adventure.title.Title
 import org.bukkit.*
 import org.bukkit.attribute.Attribute
 import org.bukkit.damage.DamageSource
@@ -26,6 +28,7 @@ import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerQuitEvent
 import org.bukkit.persistence.PersistentDataType
+import java.time.Duration
 
 internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
 
@@ -198,7 +201,7 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         plugin.dyingBossBarHandler.startBossBar(player, false)
     }
 
-    fun secondWind(player: Player, playSound: Boolean) {
+    fun secondWind(player: Player, doEffects: Boolean) {
         if (!checkDyingTag(player) && !checkPoppingTotem(player))
             return
         removeDyingTag(player)
@@ -216,8 +219,15 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
             100, 0, false, false, false))
         stopForcedCrawl(player)
         plugin.redScreenHandler.clearDyingScreenEffect(player)
-        if (playSound)
+        if (doEffects) {
             player.world.playSound(player, Sound.ITEM_TOTEM_USE, 0.8f, 2.0f) // TODO config
+            player.showTitle(Title.title( // TODO construct this title in static and just send that
+                MiniMessage.miniMessage().deserialize("<dark_aqua>SECOND WIND!"),
+                Component.empty(),
+                Title.Times.times(Duration.ofMillis(300), Duration.ofMillis(1500),
+                        Duration.ofMillis(300)))
+            )
+        }
     }
 
     private fun stopForcedCrawl(player: Player) {
