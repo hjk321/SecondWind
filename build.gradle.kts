@@ -1,6 +1,5 @@
 plugins {
     kotlin("jvm") version "2.2.0"
-    `maven-publish`
     id("io.github.goooler.shadow") version "8.1.8"
     id("io.papermc.paperweight.userdev") version "2.0.0-beta.18"
     id("net.minecrell.plugin-yml.paper") version "0.6.0"
@@ -14,12 +13,12 @@ project.ext["author"] = "hjk321"
 project.ext["url"] = "https://hangar.papermc.io/hjk321/SecondWind"
 
 repositories {
-    mavenLocal()
     mavenCentral()
     maven("https://repo.papermc.io/repository/maven-public/")
 }
 
 dependencies {
+    implementation(project(":api"))
     paperweight.paperDevBundle("1.21.7-R0.1-SNAPSHOT")
     implementation("io.papermc:paper-trail:1.0.1")
     implementation("org.bstats:bstats-bukkit:3.1.0")
@@ -51,21 +50,4 @@ tasks.shadowJar {
     relocate("kotlin", "gg.hjk.secondwind.kotlin")
     relocate("io.papermc.papertrail", "gg.hjk.secondwind.papertrail")
     relocate("org.bstats", "gg.hjk.secondwind.bstats")
-}
-
-publishing {
-    publications {
-        create<MavenPublication>("maven") {
-            groupId = project.group.toString()
-            // Use double quotes for strings in Kotlin
-            artifactId = "secondwind"
-            version = project.version.toString()
-
-            // Reference the task as a function call
-            artifact(tasks.getByName("shadowJar"))
-        }
-    }
-    repositories {
-        mavenLocal()
-    }
 }
