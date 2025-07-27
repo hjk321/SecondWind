@@ -2,6 +2,9 @@ package gg.hjk.secondwind
 
 import com.destroystokyo.paper.event.player.PlayerLaunchProjectileEvent
 import com.google.gson.JsonParseException
+import gg.hjk.secondwind.api.PlayerDeathAfterKnockDownEvent
+import gg.hjk.secondwind.api.PlayerKnockDownEvent
+import gg.hjk.secondwind.api.PlayerSecondWindEvent
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.minimessage.MiniMessage
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer
@@ -64,6 +67,8 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
             }
 
             // rip
+            val playerDeathAfterKnockDownEvent = PlayerDeathAfterKnockDownEvent(player)
+            Bukkit.getPluginManager().callEvent(playerDeathAfterKnockDownEvent)
             player.health = 0.0
         }
     }
@@ -228,6 +233,9 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
                         Duration.ofMillis(300)))
             )
         }
+        // Fire event
+        val playerSecondWindEvent = PlayerSecondWindEvent(player)
+        Bukkit.getPluginManager().callEvent(playerSecondWindEvent)
     }
 
     private fun stopForcedCrawl(player: Player) {
@@ -245,8 +253,8 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         if (event.entity !is Player)
             return
         val player = event.entity as Player
-        if (event.cause == EntityDamageEvent.DamageCause.KILL) // TODO configurable ignored damage types
-            return // the kill command bypasses second wind
+        if (event.cause == EntityDamageEvent.DamageCause.KILL || event.cause == EntityDamageEvent.DamageCause.VOID)
+            return
         if ((player.gameMode == GameMode.CREATIVE) || (player.gameMode == GameMode.SPECTATOR))
             return
         if (event.finalDamage >= player.health) { // TODO more robust check
@@ -260,6 +268,12 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
                 event.isCancelled = true
                 return
             }
+
+            // Fire event
+            val knockDownEvent = PlayerKnockDownEvent(player, event.cause, event.damageSource)
+            Bukkit.getPluginManager().callEvent(knockDownEvent);
+            if (knockDownEvent.isCancelled)
+                return
 
             // Start dying
             storeDeathMessage(player, event.damage, event.damageSource)
@@ -331,6 +345,8 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
     fun handlePlayerLeaveWhileDying(event: PlayerQuitEvent) {
         removeInvulnTag(event.player)
         if (plugin.killOnQuit && checkDyingTag(event.player)) {
+            val playerDeathAfterKnockDownEvent = PlayerDeathAfterKnockDownEvent(event.player)
+            Bukkit.getPluginManager().callEvent(playerDeathAfterKnockDownEvent)
             event.player.health = 0.0 // Bypasses damage event but still triggers death event
         }
     }
@@ -343,8 +359,11 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
                 event.player.setPose(Pose.SWIMMING, true)
             }
         } else {
-            if (!event.player.isDead)
+            if (!event.player.isDead) {
+                val playerDeathAfterKnockDownEvent = PlayerDeathAfterKnockDownEvent(event.player)
+                Bukkit.getPluginManager().callEvent(playerDeathAfterKnockDownEvent)
                 event.player.health = 0.0 // Shouldn't happen, but perhaps the config changed since they last logged in.
+            }
         }
     }
 
