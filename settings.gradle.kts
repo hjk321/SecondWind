@@ -1,7 +1,6 @@
 plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "0.5.0"
 }
-rootProject.name = "secondwind"
-
+rootProject.name = "SecondWind"
 
 include("api")
