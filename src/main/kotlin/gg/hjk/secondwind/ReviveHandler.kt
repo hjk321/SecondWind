@@ -6,6 +6,7 @@ import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
+import org.bukkit.event.entity.EntityDamageEvent
 import org.bukkit.event.player.PlayerInteractEntityEvent
 import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerQuitEvent
@@ -168,5 +169,13 @@ internal class ReviveHandler(private val plugin: SecondWind) : Listener {
     fun cleanupReviveOnJoin(event: PlayerJoinEvent) {
         removeReviveTarget(event.player)
         removeRevivedBy(event.player)
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    fun stopRevivingOnDamage(event: EntityDamageEvent) {
+        val player = event.entity as? Player ?: return
+        if (event.isCancelled)
+            return
+        removeReviveTarget(player)
     }
 }
