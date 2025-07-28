@@ -111,9 +111,8 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         return ticks - 1
     }
 
-    private fun storeDeathMessage(player: Player) {
-        val deathMessage = player.combatTracker.deathMessage
-        val serialized = GsonComponentSerializer.gson().serialize(deathMessage)
+    private fun storeDeathMessage(player: Player, message: Component) {
+        val serialized = GsonComponentSerializer.gson().serialize(message)
         player.persistentDataContainer.set(deathMessageKey, PersistentDataType.STRING, serialized)
     }
 
@@ -253,8 +252,6 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         if (event.entity !is Player)
             return
         val player = event.entity as Player
-        if (event.cause == EntityDamageEvent.DamageCause.KILL || event.cause == EntityDamageEvent.DamageCause.VOID)
-            return
         if ((player.gameMode == GameMode.CREATIVE) || (player.gameMode == GameMode.SPECTATOR))
             return
         if (event.finalDamage >= player.health) { // TODO more robust check
@@ -273,9 +270,12 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
             player.combatTracker.addCombatEntry(CombatEntry.combatEntry(player, event.damageSource,
                 event.damage.toFloat()
             ))
+            val deathMessage = player.combatTracker.deathMessage
 
             // Fire event
-            val knockDownEvent = PlayerKnockDownEvent(player, event.cause, event.damageSource)
+            val knockDownEvent = PlayerKnockDownEvent(player, event.cause, event.damageSource, deathMessage)
+            if (event.cause == EntityDamageEvent.DamageCause.KILL || event.cause == EntityDamageEvent.DamageCause.VOID)
+                knockDownEvent.isCancelled = true
             Bukkit.getPluginManager().callEvent(knockDownEvent)
             if (knockDownEvent.isCancelled) {
                 player.combatTracker.combatEntries.removeAt(player.combatTracker.combatEntries.lastIndex)
@@ -283,7 +283,7 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
             }
 
             // Start dying
-            storeDeathMessage(player)
+            storeDeathMessage(player, knockDownEvent.deathMessage)
             player.combatTracker.combatEntries.removeAt(player.combatTracker.combatEntries.lastIndex)
             event.damage = 0.0
             startDying(player)
@@ -295,7 +295,7 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGH)
+    @EventHandler(priority = EventPriority.LOW)
     fun setDeathMessage(event: PlayerDeathEvent) {
         if (event.isCancelled)
             return

@@ -1,5 +1,6 @@
 package gg.hjk.secondwind.api;
 
+import net.kyori.adventure.text.Component;
 import org.bukkit.damage.DamageSource;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Cancellable;
@@ -24,12 +25,14 @@ public class PlayerKnockDownEvent extends Event implements Cancellable {
     private final Player player;
     private final EntityDamageEvent.DamageCause cause;
     private final DamageSource source;
+    private Component deathMessage;
     private boolean cancelled = false;
 
-    public PlayerKnockDownEvent(Player player, EntityDamageEvent.DamageCause cause, DamageSource source) {
+    public PlayerKnockDownEvent(Player player, EntityDamageEvent.DamageCause cause, DamageSource source, Component deathMessage) {
         this.player = player;
         this.cause = cause;
         this.source = source;
+        this.deathMessage = deathMessage;
     }
 
     public Player getPlayer() {
@@ -42,6 +45,14 @@ public class PlayerKnockDownEvent extends Event implements Cancellable {
 
     public DamageSource getDamageSource() {
         return source;
+    }
+
+    public Component getDeathMessage() {
+        return deathMessage;
+    }
+
+    public void setDeathMessage(Component message) {
+        this.deathMessage = message;
     }
 
     /// If true, the player will die instead of getting knocked down.
