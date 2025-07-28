@@ -5,13 +5,13 @@ import com.google.gson.JsonParseException
 import gg.hjk.secondwind.api.PlayerDeathAfterKnockDownEvent
 import gg.hjk.secondwind.api.PlayerKnockDownEvent
 import gg.hjk.secondwind.api.PlayerSecondWindEvent
+import io.papermc.paper.world.damagesource.CombatEntry
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.minimessage.MiniMessage
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer
 import net.kyori.adventure.title.Title
 import org.bukkit.*
 import org.bukkit.attribute.Attribute
-import org.bukkit.damage.DamageSource
 import org.bukkit.entity.Mob
 import org.bukkit.entity.Player
 import org.bukkit.entity.Pose
@@ -111,8 +111,8 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
         return ticks - 1
     }
 
-    private fun storeDeathMessage(player: Player, damage: Double, damageSource: DamageSource) {
-        val deathMessage = plugin.nms.getDeathMessage(player, damage, damageSource)
+    private fun storeDeathMessage(player: Player) {
+        val deathMessage = player.combatTracker.deathMessage
         val serialized = GsonComponentSerializer.gson().serialize(deathMessage)
         player.persistentDataContainer.set(deathMessageKey, PersistentDataType.STRING, serialized)
     }
@@ -269,14 +269,22 @@ internal class DyingPlayerHandler(private val plugin: SecondWind) : Listener {
                 return
             }
 
+            // Update combat tracker
+            player.combatTracker.addCombatEntry(CombatEntry.combatEntry(player, event.damageSource,
+                event.damage.toFloat()
+            ))
+
             // Fire event
             val knockDownEvent = PlayerKnockDownEvent(player, event.cause, event.damageSource)
-            Bukkit.getPluginManager().callEvent(knockDownEvent);
-            if (knockDownEvent.isCancelled)
+            Bukkit.getPluginManager().callEvent(knockDownEvent)
+            if (knockDownEvent.isCancelled) {
+                player.combatTracker.combatEntries.removeAt(player.combatTracker.combatEntries.lastIndex)
                 return
+            }
 
             // Start dying
-            storeDeathMessage(player, event.damage, event.damageSource)
+            storeDeathMessage(player)
+            player.combatTracker.combatEntries.removeAt(player.combatTracker.combatEntries.lastIndex)
             event.damage = 0.0
             startDying(player)
 

@@ -1,14 +1,10 @@
 package gg.hjk.secondwind.nms
 
-import io.papermc.paper.adventure.PaperAdventure
-import net.kyori.adventure.text.Component
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.level.border.BorderStatus
 import org.bukkit.WorldBorder
 import org.bukkit.craftbukkit.CraftWorldBorder
-import org.bukkit.craftbukkit.damage.CraftDamageSource
 import org.bukkit.craftbukkit.entity.CraftPlayer
-import org.bukkit.damage.DamageSource
 import org.bukkit.entity.Player
 import org.bukkit.entity.Pose
 import java.lang.reflect.Method
@@ -52,14 +48,6 @@ internal class SimpleNMS : NMS {
         if (wb.status == BorderStatus.STATIONARY)
             return worldBorder.size
         return wb.lerpTarget
-    }
-
-    override fun getDeathMessage(player: Player, damage: Double, source: DamageSource): Component {
-        if (player !is CraftPlayer || source !is CraftDamageSource)
-            return Component.translatable("death.attack.generic", player.displayName()) // :(
-        val tracker = player.handle.combatTracker
-        tracker.recordDamage(source.handle, damage.toFloat())
-        return PaperAdventure.asAdventure(tracker.deathMessage)
     }
 
     override fun updatePlayerPose(player: Player) {
